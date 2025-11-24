@@ -1,0 +1,86 @@
+name: VULNPORTS Backend CI/CD
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+  # Permite generar versiones con release
+  release:
+    types: [published]
+
+jobs:
+
+  build:
+    name: Build & Test Backend
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout del codigo
+        uses: actions/checkout@v4
+
+      - name: Configurar Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip" # Cache automático
+
+      - name: Instalar dependencias
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pytest flake8
+
+      - name: Analizar estilo con Flake8
+        run: flake8 .
+
+      - name: Ejecutar pruebas unitarias
+        run: pytest -q
+
+
+  docker:
+    name: Build & Push Docker Image
+    needs: build
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout del código
+        uses: actions/checkout@v4
+
+      - name: Configurar QEMU (para multi-plataforma)
+        uses: docker/setup-qemu-action@v3
+
+      - name: Configurar Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login en Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      # Versión semántica si se trata de un release
+      - name: Definir TAG de la imagen
+        id: vars
+        run: |
+          if [[ "${{ github.event_name }}" == "release" ]]; then
+            echo "TAG=${{ github.event.release.tag_name }}" >> $GITHUB_OUTPUT
+          else
+            echo "TAG=${{ github.sha }}" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Construir & Subir imagen a Docker Hub
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./Dockerfile
+          platforms: linux/amd64,linux/arm64  # multi-arquitectura
+          push: true
+          tags: |
+            ${{ secrets.DOCKERHUB_USERNAME }}/vulnports:latest
+            ${{ secrets.DOCKERHUB_USERNAME }}/vulnports:${{ steps.vars.outputs.TAG }}
+
+      - name: Verificar imagen subida
+        run: docker pull ${{ secrets.DOCKERHUB_USERNAME }}/vulnports:latest
+
