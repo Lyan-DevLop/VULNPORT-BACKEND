@@ -1,5 +1,3 @@
-# app/api/deps.py
-
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.orm import Session
@@ -13,29 +11,21 @@ from app.core.logger import get_logger
 settings = get_settings()
 log = get_logger(__name__)
 
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/login")
+# Ruta s
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="api/v1/auth/login")
 
-
-# Dependencia de la BD
+# Dependencia correcta de DB
 def get_db_dep():
-    """
-    Retorna una sesión de base de datos para usar en los endpoints.
-    """
-    db = get_db()
+    db = next(get_db()) #Obtiene el usuario que esta iniciado en el navegador
     try:
         yield db
     finally:
         db.close()
 
-
-# Obtiene usuario mediante el token
 async def get_current_user(
     token: str = Depends(oauth2_scheme),
     db: Session = Depends(get_db_dep)
 ) -> User:
-    """
-    Extrae el usuario actual desde el token JWT.
-    """
 
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
@@ -65,27 +55,15 @@ async def get_current_user(
     return user
 
 
-# Verifica el rol de admin
-def require_admin(
-    current_user: User = Depends(get_current_user)
-) -> User:
-    """
-    Restricción de acceso solo para administradores.
-    """
-
+def require_admin(current_user: User = Depends(get_current_user)) -> User:
     if current_user.role != "admin":
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="No tienes permisos para realizar esta acción"
         )
-
     return current_user
 
-# Verifica los roles (user - admin)
-def require_user(
-    current_user: User = Depends(get_current_user)
-) -> User:
-    """
-    Usuarios normales o administradores tienen acceso.
-    """
+
+def require_user(current_user: User = Depends(get_current_user)) -> User:
     return current_user
+

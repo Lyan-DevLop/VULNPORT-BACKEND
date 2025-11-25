@@ -1,5 +1,3 @@
-# app/services/external/nvd_cve_lookup.py
-
 from datetime import datetime, timedelta
 from typing import List, Dict, Optional
 
@@ -79,10 +77,7 @@ class CVELookupService:
         log.info(f"{len(results)} CVEs devueltos después de filtros y límites")
         return results
 
-    # =======================================================
-    # Helpers privados
-    # =======================================================
-
+    # Ayudas
     def _extract_cvss_score(self, metrics: Dict) -> Optional[float]:
         for key in ["cvssMetricV31", "cvssMetricV30", "cvssMetricV2"]:
             if key in metrics and metrics[key]:

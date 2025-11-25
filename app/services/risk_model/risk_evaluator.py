@@ -15,59 +15,69 @@ class RiskEvaluator:
 
     def evaluate(self, host: Host, ports: List[Port]) -> dict:
         """
-        Evalúa riesgo total del host usando:
-            - nº total de puertos
-            - nº de puertos high risk
-            - CVSS promedio
-            - nº total de vulnerabilidades
+        - score max = 99.99
+        - risk_level permitido: LOW, MEDIUM, HIGH, CRITICAL
         """
 
-        # Extracion de datos
         total_ports = len(ports)
         high_risk_ports = sum(1 for p in ports if p.status == "open" and len(p.vulnerabilities) > 0)
 
-        all_vulns: List[Vulnerability] = []
+        all_vulns = []
         for p in ports:
             all_vulns.extend(p.vulnerabilities)
 
         vuln_count = len(all_vulns)
-
         avg_cvss = mean([v.cvss_score for v in all_vulns if v.cvss_score]) if vuln_count > 0 else 0.0
 
-        # Vector final para la red
-        feature_vector = [
-            total_ports,
-            high_risk_ports,
-            avg_cvss,
-            vuln_count
-        ]
-        # Predicción
-        score = risk_model.predict(feature_vector)
-        level = self._risk_level(score)
+        feature_vector = [total_ports, high_risk_ports, avg_cvss, vuln_count]
 
-        log.info(
-            f"Evaluación de riesgo para {host.ip_address}: "
-            f"Score={score:.2f}, Nivel={level}"
+        # 1) Se intenta predecir con la red neural
+        score = risk_model.predict(feature_vector)
+
+        if score and score > 0:
+            score = float(min(99.99, max(0.0, round(score, 2))))
+            level = self._risk_level(score)
+
+            return {
+                "overall_risk_score": score,
+                "risk_level": level,
+                "model_version": risk_model.get_version(),
+            }
+
+        # 2) Fallback basado en fórmula
+        score = (
+            (avg_cvss * 20) +
+            (high_risk_ports * 8) +
+            (vuln_count * 2)
         )
+
+        # Ajuste al rango maximo y minimo de la BD
+        score = float(min(99.99, max(0.0, round(score, 2))))
+
+        level = self._risk_level(score)
 
         return {
             "overall_risk_score": score,
             "risk_level": level,
-            "model_version": risk_model.get_version(),
+            "model_version": "fallback-1.0"
         }
 
-    # Clasificación basada en score
+
+    # Niveles de riesgo
     def _risk_level(self, score: float) -> str:
-        if score >= 85:
+        """
+        Niveles de riesgo
+        LOW, MEDIUM, HIGH, CRITICAL
+        """
+        if score >= 75:
             return "CRITICAL"
-        if score >= 65:
+        if score >= 50:
             return "HIGH"
-        if score >= 40:
+        if score >= 25:
             return "MEDIUM"
-        if score >= 15:
-            return "LOW"
         return "LOW"
 
 
-# Instancia reutilizable
 risk_evaluator = RiskEvaluator()
+
+
