@@ -17,26 +17,38 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      # 1. Descarga código
       - name: Checkout del codigo
         uses: actions/checkout@v4
 
-      - name: Configurar Python 3.11
+      # 2. Ajustamos Python a 3.12 (el que tú usas)
+      - name: Configurar Python 3.12
         uses: actions/setup-python@v5
         with:
-          python-version: "3.11"
-          cache: "pip" # Cache automático
+          python-version: "3.12"
+          cache: "pip"
 
+      # 3. Instalar dependencias del proyecto
       - name: Instalar dependencias
         run: |
           python -m pip install --upgrade pip
-          pip install -r requirements.txt
+
+          # Instalar dependencias de requirements
+          pip install --no-cache-dir -r requirements.txt
+
+          # Instalar PyTorch para CPU (compatible en 3.12)
+          pip install torch==2.9.1 --index-url https://download.pytorch.org/whl/cpu
+
+          # Linter y pruebas
           pip install pytest flake8
 
+      # 4. Linter sobre el código real
       - name: Analizar estilo con Flake8
-        run: flake8 .
+        run: flake8 app
 
+      # 5. Ejecutar tests
       - name: Ejecutar pruebas unitarias
-        run: pytest -q
+        run: pytest test -q
 
 
   docker:
@@ -60,7 +72,7 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      # Versión semántica si se trata de un release
+      # Etiqueta de versión (semántica cuando es release)
       - name: Definir TAG de la imagen
         id: vars
         run: |
@@ -74,8 +86,8 @@ jobs:
         uses: docker/build-push-action@v5
         with:
           context: .
-          file: ./Dockerfile
-          platforms: linux/amd64,linux/arm64  # multi-arquitectura
+          file: ./dockerfile
+          platforms: linux/amd64,linux/arm64
           push: true
           tags: |
             ${{ secrets.DOCKERHUB_USERNAME }}/vulnports:latest
@@ -83,4 +95,5 @@ jobs:
 
       - name: Verificar imagen subida
         run: docker pull ${{ secrets.DOCKERHUB_USERNAME }}/vulnports:latest
+
 

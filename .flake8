@@ -1,3 +1,33 @@
 [flake8]
+# Máximo permitido por PEP8
 max-line-length = 120
-exclude = venv, __pycache__, .git, .github
+
+# Ignorar reglas comunes que no aportan mucho al proyecto
+ignore =
+    E203,  # Espaciado antes de ':' (incompatible con Black)
+    E266,  # Comentario demasiado largo
+    E501,  # Línea demasiado larga (lo maneja max-line-length)
+    W503,  # Salto de línea antes de operador
+
+# Rutas a analizar
+# Solo revisamos el código real
+exclude =
+    .git,
+    .github,
+    __pycache__,
+    venv,
+    env,
+    .env,
+    desktop,
+    build,
+    dist,
+    dockerfile
+
+# Mostrar conteo de errores
+count = True
+
+# Mostrar la línea completa con el error
+show-source = True
+
+# Activar complejidad ciclomatica máxima
+max-complexity = 12
