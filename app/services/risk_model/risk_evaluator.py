@@ -1,18 +1,16 @@
-from typing import List
 from statistics import mean
+from typing import List
 
+from app.core.logger import get_logger
 from app.models.hosts import Host
 from app.models.ports import Port
-from app.models.vulnerabilities import Vulnerability
 
 from .neural_model import risk_model
-from app.core.logger import get_logger
 
 log = get_logger(__name__)
 
 
 class RiskEvaluator:
-
     def evaluate(self, host: Host, ports: List[Port]) -> dict:
         """
         - score max = 99.99
@@ -45,23 +43,14 @@ class RiskEvaluator:
             }
 
         # 2) Fallback basado en fórmula
-        score = (
-            (avg_cvss * 20) +
-            (high_risk_ports * 8) +
-            (vuln_count * 2)
-        )
+        score = (avg_cvss * 20) + (high_risk_ports * 8) + (vuln_count * 2)
 
         # Ajuste al rango maximo y minimo de la BD
         score = float(min(99.99, max(0.0, round(score, 2))))
 
         level = self._risk_level(score)
 
-        return {
-            "overall_risk_score": score,
-            "risk_level": level,
-            "model_version": "fallback-1.0"
-        }
-
+        return {"overall_risk_score": score, "risk_level": level, "model_version": "fallback-1.0"}
 
     # Niveles de riesgo
     def _risk_level(self, score: float) -> str:
@@ -79,5 +68,3 @@ class RiskEvaluator:
 
 
 risk_evaluator = RiskEvaluator()
-
-

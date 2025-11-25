@@ -3,9 +3,10 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.models.vulnerabilities import Vulnerability
-from app.schemas.vulnerabilities import VulnerabilityCreate, VulnerabilityUpdate, VulnerabilityOut
+from app.schemas.vulnerabilities import VulnerabilityCreate, VulnerabilityOut, VulnerabilityUpdate
 
 router = APIRouter(prefix="/vulnerabilities", tags=["Vulnerabilities"])
+
 
 # Endpoints de las vulnerabilidades
 @router.post("/", response_model=VulnerabilityOut)

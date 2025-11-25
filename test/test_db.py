@@ -1,9 +1,10 @@
 # test_db.py
 
 import os
+
+from dotenv import load_dotenv
 from sqlalchemy import create_engine, text
 from sqlalchemy.exc import SQLAlchemyError
-from dotenv import load_dotenv
 
 load_dotenv()
 
@@ -15,10 +16,7 @@ print(f"URL: {DATABASE_URL}")
 
 def test_connection():
     try:
-        engine = create_engine(
-            DATABASE_URL,
-            pool_pre_ping=True
-        )
+        engine = create_engine(DATABASE_URL, pool_pre_ping=True)
 
         with engine.connect() as conn:
             result = conn.execute(text("SELECT NOW();"))

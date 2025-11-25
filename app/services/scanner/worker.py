@@ -1,21 +1,18 @@
-import asyncio
-from datetime import datetime, date
-from typing import Callable, Awaitable, Dict, List, Optional
+from datetime import date, datetime
+from typing import Awaitable, Callable, Dict, List, Optional
 
 from sqlalchemy.orm import Session
 
-from app.services.scanner.port_scanner import port_scanner
-from app.services.scanner.os_detector import detect_os
-from app.services.external.nvd_cve_lookup import cve_lookup_service
-from app.services.risk_model.risk_evaluator import risk_evaluator
-
+from app.core.logger import get_logger
 from app.models.hosts import Host
 from app.models.ports import Port
-from app.models.vulnerabilities import Vulnerability
 from app.models.risk import RiskAssessment
-
+from app.models.vulnerabilities import Vulnerability
+from app.services.external.nvd_cve_lookup import cve_lookup_service
+from app.services.risk_model.risk_evaluator import risk_evaluator
+from app.services.scanner.os_detector import detect_os
+from app.services.scanner.port_scanner import port_scanner
 from app.utils.network import discover_active_hosts
-from app.core.logger import get_logger
 
 log = get_logger(__name__)
 
@@ -53,23 +50,17 @@ class ScanWorker:
         # 1 — Detección de OS
         os_name = detect_os(ip)
         if on_update:
-            await on_update(
-                {"type": "status", "message": f"Detectado OS para {ip}: {os_name}"}
-            )
+            await on_update({"type": "status", "message": f"Detectado OS para {ip}: {os_name}"})
 
         # 2 — Escaneo de puertos
         if on_update:
-            await on_update(
-                {"type": "status", "message": f"Escaneando puertos en {ip}..."}
-            )
+            await on_update({"type": "status", "message": f"Escaneando puertos en {ip}..."})
 
         port_results = await port_scanner.scan_ports(ip, ports)
 
         # 3 — Buscar CVEs
         if on_update:
-            await on_update(
-                {"type": "status", "message": "Buscando CVEs en NVD para puertos abiertos..."}
-            )
+            await on_update({"type": "status", "message": "Buscando CVEs en NVD para puertos abiertos..."})
 
         all_vulns: Dict[int, List[Dict]] = {}
 
@@ -89,9 +80,7 @@ class ScanWorker:
 
         # 4 — Evaluación de riesgo
         if on_update:
-            await on_update(
-                {"type": "status", "message": "Evaluando riesgo para el host..."}
-            )
+            await on_update({"type": "status", "message": "Evaluando riesgo para el host..."})
 
         fake_ports = self._fake_port_objects(port_results, all_vulns)
 
@@ -133,7 +122,6 @@ class ScanWorker:
 
         return result
 
-
     # ESCANEO DE RANGO
     async def scan_network_range(
         self,
@@ -149,17 +137,13 @@ class ScanWorker:
         """
 
         if on_update:
-            await on_update(
-                {"type": "status", "message": f"Descubriendo hosts activos en {cidr}..."}
-            )
+            await on_update({"type": "status", "message": f"Descubriendo hosts activos en {cidr}..."})
 
         active_hosts = discover_active_hosts(cidr)
 
         if not active_hosts:
             if on_update:
-                await on_update(
-                    {"type": "status", "message": "No se detectaron hosts activos."}
-                )
+                await on_update({"type": "status", "message": "No se detectaron hosts activos."})
             return {}
 
         results: Dict[str, Dict] = {}
@@ -199,7 +183,6 @@ class ScanWorker:
 
         return results
 
-
     # PERSISTENCIA
     def _persist_scan_result(
         self,
@@ -221,9 +204,7 @@ class ScanWorker:
 
         try:
             # HOST existente o nuevo
-            host: Host = (
-                db.query(Host).filter(Host.ip_address == ip).one_or_none()
-            )
+            host: Host = db.query(Host).filter(Host.ip_address == ip).one_or_none()
             if host is None:
                 host = Host(
                     ip_address=ip,
@@ -242,9 +223,7 @@ class ScanWorker:
             # Filtrar puertos relevantes
             relevant_status = {"open", "open|filtered", "filtered"}
             relevant_ports = [
-                (port, data)
-                for port, data in port_results.items()
-                if data.get("status") in relevant_status
+                (port, data) for port, data in port_results.items() if data.get("status") in relevant_status
             ]
 
             host.total_ports = len(relevant_ports)
@@ -282,9 +261,7 @@ class ScanWorker:
                 port_obj.scanned_at = datetime.utcnow()
 
                 # Borrar vulnerabilidades previas
-                db.query(Vulnerability).filter(
-                    Vulnerability.port_id == port_obj.id
-                ).delete()
+                db.query(Vulnerability).filter(Vulnerability.port_id == port_obj.id).delete()
 
                 cve_list = all_vulns.get(port_number, [])
 
@@ -329,7 +306,6 @@ class ScanWorker:
             db.rollback()
             log.exception(f"Error persistiendo resultados para host {ip}: {e}")
 
-
     # Ayudas
     def _parse_date(self, value) -> Optional[date]:
         """Convierte cadenas ISO8601 o datetime a date."""
@@ -358,12 +334,14 @@ class ScanWorker:
         fake_ports = []
 
         for port, data in port_results.items():
+
             class FakePort:
                 port_number = port
                 status = data.get("status")
                 vulnerabilities = []
 
             for v in vulns.get(port, []):
+
                 class FakeVuln:
                     cvss_score = v.get("cvss_score")
 

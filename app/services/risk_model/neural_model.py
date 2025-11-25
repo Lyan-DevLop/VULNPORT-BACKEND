@@ -1,13 +1,13 @@
 import os
+
 import joblib
 import numpy as np
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.preprocessing import MinMaxScaler
-from datetime import datetime
 
 from app.core.logger import get_logger
-from app.models.hosts import Host
 from app.database import SessionLocal
+from app.models.hosts import Host
 
 log = get_logger(__name__)
 
@@ -18,7 +18,6 @@ MODEL_VERSION = "1.1.0"
 
 
 class RiskModel:
-
     MIN_HOSTS = 10
     MIN_VULNS = 20
 
@@ -76,9 +75,7 @@ class RiskModel:
             X.append([total_ports, high_risk_ports, avg_cvss, vuln_count])
 
             # Bootstrapped label
-            y.append(
-                min(99.99, max(0.0, (avg_cvss * 20) + (high_risk_ports * 8) + (vuln_count * 2)))
-            )
+            y.append(min(99.99, max(0.0, (avg_cvss * 20) + (high_risk_ports * 8) + (vuln_count * 2))))
 
         if total_vulns < self.MIN_VULNS:
             log.warning(f"No hay suficientes vulnerabilidades ({total_vulns}) para entrenar la red.")
@@ -95,11 +92,7 @@ class RiskModel:
         self.scaler = MinMaxScaler()
         X_scaled = self.scaler.fit_transform(X)
 
-        self.model = RandomForestRegressor(
-            n_estimators=150,
-            max_depth=10,
-            random_state=42
-        )
+        self.model = RandomForestRegressor(n_estimators=150, max_depth=10, random_state=42)
         self.model.fit(X_scaled, y)
 
         joblib.dump(self.model, MODEL_PATH)
@@ -124,7 +117,6 @@ class RiskModel:
 
         return score
 
-
     # METADATOS
     def get_version(self):
         return MODEL_VERSION
@@ -132,5 +124,3 @@ class RiskModel:
 
 # Instancia global
 risk_model = RiskModel()
-
-

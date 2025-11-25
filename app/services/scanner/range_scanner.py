@@ -1,26 +1,20 @@
 import ipaddress
-from typing import Dict, Optional, AsyncGenerator, List
+from typing import AsyncGenerator, Dict, Optional
 
-from app.services.scanner.port_scanner import scan_single_host
-from app.utils.parsing import normalize_ports
-from app.utils.network import discover_active_hosts
 from app.core.logger import get_logger
+from app.services.scanner.port_scanner import scan_single_host
+from app.utils.network import discover_active_hosts
+from app.utils.parsing import normalize_ports
 
 log = get_logger(__name__)
 
 
 class RangeScanner:
-
     # STREAMING (WebSocket) — solo hosts con puertos abiertos
-    async def scan_stream(
-        self,
-        network_cidr: str,
-        ports_raw: Optional[str] = None
-    ) -> AsyncGenerator[Dict, None]:
-
+    async def scan_stream(self, network_cidr: str, ports_raw: Optional[str] = None) -> AsyncGenerator[Dict, None]:
         # Validar puertos
         try:
-            ports = normalize_ports(ports_raw)
+            ports_raw = normalize_ports(ports_raw)
         except Exception as e:
             yield {"type": "error", "message": str(e)}
             return
@@ -44,12 +38,7 @@ class RangeScanner:
         for idx, ip in enumerate(active_hosts):
             progress = round(((idx + 1) / total) * 100, 2)
 
-            yield {
-                "type": "progress",
-                "ip": ip,
-                "progress": progress,
-                "message": f"Escaneando {ip}"
-            }
+            yield {"type": "progress", "ip": ip, "progress": progress, "message": f"Escaneando {ip}"}
 
             try:
                 host_result = await scan_single_host(ip, ports_raw)
@@ -60,29 +49,15 @@ class RangeScanner:
             if not host_result.get("open_ports"):
                 continue
 
-            yield {
-                "type": "result",
-                "ip": ip,
-                "data": host_result,
-                "progress": progress
-            }
+            yield {"type": "result", "ip": ip, "data": host_result, "progress": progress}
 
-        yield {
-            "type": "status",
-            "message": "Escaneo completado",
-            "progress": 100
-        }
+        yield {"type": "status", "message": "Escaneo completado", "progress": 100}
 
     # REST MODE — solo devuelve hosts con puertos abiertos
-    async def scan_network(
-        self,
-        network_cidr: str,
-        ports_raw: Optional[str] = None
-    ) -> Dict[str, Dict]:
-
+    async def scan_network(self, network_cidr: str, ports_raw: Optional[str] = None) -> Dict[str, Dict]:
         # Validar puertos
         try:
-            ports = normalize_ports(ports_raw)
+            ports_raw = normalize_ports(ports_raw)
         except Exception as e:
             return {"error": str(e)}
 
@@ -114,4 +89,3 @@ class RangeScanner:
 
 # Instancia global
 range_scanner = RangeScanner()
-

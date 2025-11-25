@@ -3,9 +3,10 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.models.hosts import Host
-from app.schemas.hosts import HostCreate, HostUpdate, HostOut
+from app.schemas.hosts import HostCreate, HostOut, HostUpdate
 
 router = APIRouter(prefix="/hosts", tags=["Hosts"])
+
 
 # Endpoints de los hosts
 @router.post("/", response_model=HostOut)
@@ -56,4 +57,3 @@ def delete_host(host_id: int, db: Session = Depends(get_db)):
     db.delete(host)
     db.commit()
     return {"message": "Host eliminado"}
-

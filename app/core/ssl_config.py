@@ -1,8 +1,10 @@
 import os
 from dataclasses import dataclass
+
 from app.core.logger import get_logger
 
 log = get_logger(__name__)
+
 
 # Configuracion SSL para uso de conexiones HTTPS (Faltan ajustes)
 @dataclass

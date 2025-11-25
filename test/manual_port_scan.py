@@ -1,13 +1,14 @@
+import ipaddress
+import platform
 import socket
+import subprocess
 import threading
 from queue import Queue
-import ipaddress
-import subprocess
-import platform
 
 # -----------------------------------------------------------------------
 # 1. DESCUBRIR HOSTS ACTIVOS (ARP + ICMP)
 # -----------------------------------------------------------------------
+
 
 def ping_host(ip):
     param = "-n" if platform.system().lower() == "windows" else "-c"
@@ -15,8 +16,9 @@ def ping_host(ip):
     try:
         result = subprocess.run(command, stdout=subprocess.DEVNULL)
         return result.returncode == 0
-    except:
+    except Exception:
         return False
+
 
 def discover_hosts(network_cidr):
     print(f"\n🔎 Escaneando red {network_cidr}...")
@@ -31,9 +33,11 @@ def discover_hosts(network_cidr):
 
     return alive_hosts
 
+
 # -----------------------------------------------------------------------
 # 2. ESCANEO DE PUERTOS (TCP CONNECT)
 # -----------------------------------------------------------------------
+
 
 def scan_port(ip, port, results):
     s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -45,14 +49,15 @@ def scan_port(ip, port, results):
             try:
                 s.send(b"HELLO\r\n")
                 banner = s.recv(64).decode(errors="ignore").strip()
-            except:
+            except Exception:
                 pass
 
             results.append((port, "open", banner))
-    except:
+    except Exception:
         pass
     finally:
         s.close()
+
 
 def scan_host(ip, max_threads=500):
     print(f"\n🔎 Escaneando puertos de {ip}...\n")
@@ -81,10 +86,10 @@ def scan_host(ip, max_threads=500):
     return sorted(results)
 
 
-
 # -----------------------------------------------------------------------
 # 3. ESCANEO COMPLETO DE RED
 # -----------------------------------------------------------------------
+
 
 def full_network_scan(network_cidr):
     alive = discover_hosts(network_cidr)

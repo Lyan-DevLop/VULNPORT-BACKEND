@@ -6,7 +6,6 @@ on:
   pull_request:
     branches: [ main ]
 
-  # Permite generar versiones con release
   release:
     types: [published]
 
@@ -17,36 +16,36 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      # 1. Descarga código
       - name: Checkout del codigo
         uses: actions/checkout@v4
 
-      # 2. Ajustamos Python a 3.12 (el que tú usas)
       - name: Configurar Python 3.12
         uses: actions/setup-python@v5
         with:
           python-version: "3.12"
           cache: "pip"
 
-      # 3. Instalar dependencias del proyecto
       - name: Instalar dependencias
         run: |
           python -m pip install --upgrade pip
 
-          # Instalar dependencias de requirements
+          # Instalar requirements sin PyTorch CPU
           pip install --no-cache-dir -r requirements.txt
 
-          # Instalar PyTorch para CPU (compatible en 3.12)
+          # Instalar PyTorch CPU (3.12 compatible)
           pip install torch==2.9.1 --index-url https://download.pytorch.org/whl/cpu
+          pip install torchaudio==2.9.1 --index-url https://download.pytorch.org/whl/cpu
+          pip install torchvision==0.24.1 --index-url https://download.pytorch.org/whl/cpu
 
           # Linter y pruebas
-          pip install pytest flake8
+          pip install pytest ruff
 
-      # 4. Linter sobre el código real
-      - name: Analizar estilo con Flake8
-        run: flake8 app
+      - name: Analizar estilo con Ruff
+        run: ruff check .
 
-      # 5. Ejecutar tests
+      # - name: Formatear código con Ruff (opc)
+      #   run: ruff format .
+
       - name: Ejecutar pruebas unitarias
         run: pytest test -q
 
@@ -60,7 +59,7 @@ jobs:
       - name: Checkout del código
         uses: actions/checkout@v4
 
-      - name: Configurar QEMU (para multi-plataforma)
+      - name: Configurar QEMU (multi-plataforma)
         uses: docker/setup-qemu-action@v3
 
       - name: Configurar Buildx
@@ -72,7 +71,6 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      # Etiqueta de versión (semántica cuando es release)
       - name: Definir TAG de la imagen
         id: vars
         run: |
@@ -87,7 +85,7 @@ jobs:
         with:
           context: .
           file: ./dockerfile
-          platforms: linux/amd64,linux/arm64
+          platforms: linux/amd64, linux/arm64
           push: true
           tags: |
             ${{ secrets.DOCKERHUB_USERNAME }}/vulnports:latest
@@ -95,5 +93,3 @@ jobs:
 
       - name: Verificar imagen subida
         run: docker pull ${{ secrets.DOCKERHUB_USERNAME }}/vulnports:latest
-
-

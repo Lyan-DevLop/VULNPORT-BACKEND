@@ -1,4 +1,4 @@
-from app.utils.ports import validate_port, COMMON_SERVICES
+from app.utils.ports import COMMON_SERVICES, validate_port
 
 
 def parse_port_list(port_str: str) -> list[int]:
@@ -26,10 +26,7 @@ def parse_port_list(port_str: str) -> list[int]:
         # ¿Es un NOMBRE DE SERVICIO? ej: "http"
         if part in COMMON_SERVICES.values():
             # busca puerto asociado
-            service_port = next(
-                (port for port, name in COMMON_SERVICES.items() if name == part),
-                None
-            )
+            service_port = next((port for port, name in COMMON_SERVICES.items() if name == part), None)
             if service_port is not None:
                 ports.add(service_port)
                 continue
@@ -72,5 +69,3 @@ def normalize_ports(port_input: str | None) -> list[int]:
         return sorted(COMMON_SERVICES.keys())
 
     return parse_port_list(port_input)
-
-

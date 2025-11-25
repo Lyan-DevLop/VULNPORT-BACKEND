@@ -1,4 +1,4 @@
-#Top de puertos y servicios mas usados segun la IANA
+# Top de puertos y servicios mas usados segun la IANA
 
 COMMON_SERVICES = {
     # Puertos bien conocidos (0–1023)
@@ -46,7 +46,6 @@ COMMON_SERVICES = {
     990: "ftps",
     993: "imaps",
     995: "pop3s",
-
     # Puertos registrados importantes (1024–49151)
     1025: "nsr",
     1080: "socks-proxy",
@@ -103,19 +102,17 @@ COMMON_SERVICES = {
     9300: "elastic-node",
     9418: "git",
     11211: "memcached",
-
     # Bases de datos
     27017: "mongodb",
     27018: "mongodb-shard",
     27019: "mongodb-config",
     28017: "mongodb-admin",
-
     # Empresariales
     50000: "sap",
     50070: "hadoop-hdfs",
     50075: "hadoop-datanode",
     50090: "hadoop-secondary",
-    61616: "activemq-openwire"
+    61616: "activemq-openwire",
 }
 
 
@@ -160,10 +157,4 @@ def port_info(port: int) -> dict:
 
     service = COMMON_SERVICES.get(port, "unknown")
 
-    return {
-        "port": port,
-        "service": service,
-        "is_common": port in COMMON_SERVICES
-    }
-
-
+    return {"port": port, "service": service, "is_common": port in COMMON_SERVICES}

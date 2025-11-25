@@ -3,9 +3,10 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.models.ports import Port
-from app.schemas.ports import PortCreate, PortUpdate, PortOut
+from app.schemas.ports import PortCreate, PortOut, PortUpdate
 
 router = APIRouter(prefix="/ports", tags=["Ports"])
+
 
 # Endpoints de los puertos
 @router.post("/", response_model=PortOut)

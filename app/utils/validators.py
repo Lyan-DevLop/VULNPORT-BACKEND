@@ -1,5 +1,5 @@
 from app.utils.ip_tools import is_valid_ip
-from app.utils.ports import validate_port, normalize_protocol
+from app.utils.ports import normalize_protocol, validate_port
 
 
 def validate_ip_or_raise(ip: str):
