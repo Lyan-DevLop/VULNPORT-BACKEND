@@ -3,7 +3,6 @@
 # ----------------------------------------------------
 FROM python:3.11-slim
 
-# Configuración general
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1
 
@@ -36,9 +35,20 @@ RUN pip install --upgrade pip && \
 COPY . .
 
 # ----------------------------------------------------
-# Variables de entorno de BD (Docker Compose las setea)
+# Variables completas de Supabase (QUEMADAS)
 # ----------------------------------------------------
-ENV DB_HOST=${DB_HOST} \ DB_PORT=${DB_PORT} \ DB_NAME=${DB_NAME} \ DB_USER=${DB_USER} \ DB_PASSWORD=${DB_PASSWORD}
+ENV SUPABASE_USER="postgres.tiortfqvhbpulhovbtmz" \
+    SUPABASE_PASSWORD="Vacios#Port9900*" \
+    SUPABASE_HOST="aws-1-us-east-1.pooler.supabase.com" \
+    SUPABASE_PORT="5432" \
+    SUPABASE_DB="postgres" \
+    SUPABASE_SSL="require" \
+    SUPABASE_OPTIONS="-4"
+
+# ----------------------------------------------------
+# Construcción automática del DATABASE_URL
+# ----------------------------------------------------
+ENV DATABASE_URL="postgresql://${SUPABASE_USER}:${SUPABASE_PASSWORD}@${SUPABASE_HOST}:${SUPABASE_PORT}/${SUPABASE_DB}"
 
 # ----------------------------------------------------
 # Exponer FastAPI
@@ -46,7 +56,8 @@ ENV DB_HOST=${DB_HOST} \ DB_PORT=${DB_PORT} \ DB_NAME=${DB_NAME} \ DB_USER=${DB_
 EXPOSE 8000
 
 # ----------------------------------------------------
-# Comando principal
+# Comando principal (FastAPI/Uvicorn)
 # ----------------------------------------------------
 CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+
 
