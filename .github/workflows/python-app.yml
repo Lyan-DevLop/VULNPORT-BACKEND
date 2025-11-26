@@ -52,7 +52,6 @@ jobs:
           pytest test -q
 
 
-
   docker:
     name: Build & Push Docker Image
     needs: build
@@ -61,12 +60,6 @@ jobs:
     steps:
       - name: Checkout del código
         uses: actions/checkout@v4
-
-      - name: Configurar QEMU (multi-plataforma)
-        uses: docker/setup-qemu-action@v3
-
-      - name: Configurar Buildx
-        uses: docker/setup-buildx-action@v3
 
       - name: Login en Docker Hub
         uses: docker/login-action@v3
@@ -83,16 +76,20 @@ jobs:
             echo "TAG=${{ github.sha }}" >> $GITHUB_OUTPUT
           fi
 
-      - name: Construir & Subir imagen a Docker Hub
+      - name: Build & Push Imagen Docker
         uses: docker/build-push-action@v5
         with:
           context: .
           file: ./dockerfile
-          platforms: linux/amd64, linux/arm64
           push: true
+          platforms: linux/amd64
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
           tags: |
             ${{ secrets.DOCKERHUB_USERNAME }}/vulnports:latest
             ${{ secrets.DOCKERHUB_USERNAME }}/vulnports:${{ steps.vars.outputs.TAG }}
 
       - name: Verificar imagen subida
         run: docker pull ${{ secrets.DOCKERHUB_USERNAME }}/vulnports:latest
+
+
