@@ -47,7 +47,8 @@ jobs:
       #   run: ruff format .
 
       - name: Ejecutar pruebas unitarias
-        run: pytest test -q
+        run: export PYTHONPATH="$PYTHONPATH:$(pwd)"
+             pytest test -q
 
 
   docker:
