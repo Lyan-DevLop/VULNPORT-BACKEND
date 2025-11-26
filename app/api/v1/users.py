@@ -1,12 +1,13 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
-from app.database import get_db
-from app.schemas.users import UserCreate, UserOut, UserUpdate
-from app.models.users import User
 from app.core.security import hash_password
+from app.database import get_db
+from app.models.users import User
+from app.schemas.users import UserCreate, UserOut, UserUpdate
 
 router = APIRouter(prefix="/users", tags=["Users"])
+
 
 # Endpoints de los usuarios
 @router.post("/", response_model=UserOut)
@@ -67,4 +68,3 @@ def delete_user(user_id: int, db: Session = Depends(get_db)):
     db.delete(user)
     db.commit()
     return {"message": "Usuario eliminado con éxito"}
-

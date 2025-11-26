@@ -6,7 +6,6 @@ on:
   pull_request:
     branches: [ main ]
 
-  # Permite generar versiones con release
   release:
     types: [published]
 
@@ -20,23 +19,38 @@ jobs:
       - name: Checkout del codigo
         uses: actions/checkout@v4
 
-      - name: Configurar Python 3.11
+      - name: Configurar Python 3.12
         uses: actions/setup-python@v5
         with:
-          python-version: "3.11"
-          cache: "pip" # Cache automático
+          python-version: "3.12"
+          cache: "pip"
 
       - name: Instalar dependencias
         run: |
           python -m pip install --upgrade pip
-          pip install -r requirements.txt
-          pip install pytest flake8
 
-      - name: Analizar estilo con Flake8
-        run: flake8 .
+          # Instalar requirements sin PyTorch CPU
+          pip install --no-cache-dir -r requirements.txt
+
+          # Instalar PyTorch CPU (3.12 compatible)
+          pip install torch==2.9.1 --index-url https://download.pytorch.org/whl/cpu
+          pip install torchaudio==2.9.1 --index-url https://download.pytorch.org/whl/cpu
+          pip install torchvision==0.24.1 --index-url https://download.pytorch.org/whl/cpu
+
+          # Linter y pruebas
+          pip install pytest ruff
+
+      - name: Analizar estilo con Ruff
+        run: ruff check .
+
+      # - name: Formatear código con Ruff (opc)
+      #   run: ruff format .
 
       - name: Ejecutar pruebas unitarias
-        run: pytest -q
+        run: |
+          export PYTHONPATH="$PYTHONPATH:$(pwd)"
+          pytest test -q
+
 
 
   docker:
@@ -48,7 +62,7 @@ jobs:
       - name: Checkout del código
         uses: actions/checkout@v4
 
-      - name: Configurar QEMU (para multi-plataforma)
+      - name: Configurar QEMU (multi-plataforma)
         uses: docker/setup-qemu-action@v3
 
       - name: Configurar Buildx
@@ -60,7 +74,6 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      # Versión semántica si se trata de un release
       - name: Definir TAG de la imagen
         id: vars
         run: |
@@ -74,8 +87,8 @@ jobs:
         uses: docker/build-push-action@v5
         with:
           context: .
-          file: ./Dockerfile
-          platforms: linux/amd64,linux/arm64  # multi-arquitectura
+          file: ./dockerfile
+          platforms: linux/amd64, linux/arm64
           push: true
           tags: |
             ${{ secrets.DOCKERHUB_USERNAME }}/vulnports:latest
@@ -83,4 +96,3 @@ jobs:
 
       - name: Verificar imagen subida
         run: docker pull ${{ secrets.DOCKERHUB_USERNAME }}/vulnports:latest
-

@@ -1,6 +1,7 @@
-from pydantic import BaseModel
-from pydantic_settings import BaseSettings
 from functools import lru_cache
+
+from pydantic_settings import BaseSettings
+
 
 # Carga ce variables y configuracion que se usa en el .env
 class Settings(BaseSettings):

@@ -1,13 +1,14 @@
-from fastapi.middleware.cors import CORSMiddleware
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 
-from app.core.settings import get_settings
 from app.core.logger import get_logger
+from app.core.settings import get_settings
 
 settings = get_settings()
 log = get_logger(__name__)
 
-#Configuracion general de la API
+
+# Configuracion general de la API
 class AppConfig:
     """
     Configuración general de la app FastAPI.

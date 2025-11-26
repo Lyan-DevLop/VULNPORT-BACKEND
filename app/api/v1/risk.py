@@ -3,9 +3,10 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.models.risk import RiskAssessment
-from app.schemas.risk import RiskCreate, RiskUpdate, RiskOut
+from app.schemas.risk import RiskCreate, RiskOut, RiskUpdate
 
 router = APIRouter(prefix="/risk", tags=["Risk Assessments"])
+
 
 # Endpoints de la red neural
 @router.post("/", response_model=RiskOut)

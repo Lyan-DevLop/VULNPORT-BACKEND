@@ -1,9 +1,9 @@
 from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker, Session, declarative_base
+from sqlalchemy.orm import Session, declarative_base, sessionmaker
 from sqlalchemy.pool import NullPool
 
-from app.core.settings import get_settings
 from app.core.logger import get_logger
+from app.core.settings import get_settings
 
 settings = get_settings()
 log = get_logger(__name__)
@@ -30,11 +30,7 @@ else:
 
 
 # SESSION LOCAL
-SessionLocal = sessionmaker(
-    autocommit=False,
-    autoflush=False,
-    bind=engine
-)
+SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 
 # Base para los modelos declarativos
@@ -60,9 +56,6 @@ def init_db():
     Inicializa las tablas si no existen.
     OJO: host_summary es una vista, no se crea.
     """
-    from app.models import (
-        hosts, ports, vulnerabilities, risk, users, host_summary
-    )
 
     log.info("Creando tablas si no existen...")
     Base.metadata.create_all(bind=engine)

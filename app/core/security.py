@@ -1,39 +1,38 @@
 from datetime import datetime, timedelta
-from jose import jwt, JWTError
-from passlib.context import CryptContext
 
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, HTTPException
 from fastapi.security import OAuth2PasswordBearer
+from jose import JWTError, jwt
+from passlib.context import CryptContext
 from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.models.users import User
+
 from .settings import get_settings
 
 settings = get_settings()
 
-pwd_context = CryptContext(
-    schemes=["pbkdf2_sha256"],
-    deprecated="auto"
-)
+pwd_context = CryptContext(schemes=["pbkdf2_sha256"], deprecated="auto")
 
 #  DEFINIR ESQUEMA OAUTH2 — NECESARIO PARA DEPENDENCIAS
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/login")
+
 
 # Hash a la contraseña
 def hash_password(password: str) -> str:
     return pwd_context.hash(password)
 
+
 def verify_password(password: str, hashed: str) -> bool:
     return pwd_context.verify(password, hashed)
+
 
 # Creo el JWT
 def create_access_token(data: dict, expires_minutes: int | None = None):
     to_encode = data.copy()
 
-    expire = datetime.utcnow() + timedelta(
-        minutes=expires_minutes or settings.JWT_EXPIRES_MINUTES
-    )
+    expire = datetime.utcnow() + timedelta(minutes=expires_minutes or settings.JWT_EXPIRES_MINUTES)
     to_encode.update({"exp": expire})
 
     encoded = jwt.encode(
@@ -43,12 +42,9 @@ def create_access_token(data: dict, expires_minutes: int | None = None):
     )
     return encoded
 
-# Tomar el usuario actual (logueado)
-def get_current_user(
-    token: str = Depends(oauth2_scheme),
-    db: Session = Depends(get_db)
-) -> User:
 
+# Tomar el usuario actual (logueado)
+def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)) -> User:
     try:
         payload = jwt.decode(
             token,
@@ -64,4 +60,3 @@ def get_current_user(
         raise HTTPException(status_code=401, detail="Usuario no encontrado")
 
     return user
-

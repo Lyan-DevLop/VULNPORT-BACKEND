@@ -1,11 +1,11 @@
 import asyncio
-import socket
 import platform
-from typing import Optional, Dict, List
+import socket
+from typing import Dict, List, Optional
 
-from app.utils.ports import guess_service, normalize_protocol
-from app.utils.parsing import normalize_ports
 from app.core.logger import get_logger
+from app.utils.parsing import normalize_ports
+from app.utils.ports import guess_service
 
 log = get_logger(__name__)
 
@@ -15,10 +15,10 @@ def get_optimal_limit():
     system = platform.system()
 
     if system == "Windows":
-        return 200      # Windows select() soporta poco
+        return 200  # Windows select() soporta poco
     if system == "Linux":
-        return 800      # Linux permite más conexiones
-    return 300          # Fallback seguro
+        return 800  # Linux permite más conexiones
+    return 300  # Fallback seguro
 
 
 class PortScanner:
@@ -37,7 +37,6 @@ class PortScanner:
 
     # Scaneo TCP
     async def scan_tcp(self, ip: str, port: int) -> Dict:
-
         if self.cancel_flag:
             return {"status": "cancelled"}
 
@@ -61,9 +60,8 @@ class PortScanner:
             # NO devolvemos "closed" → lo filtramos arriba
             return {"status": "closed"}
 
-    #Scaneo UDP
+    # Scaneo UDP
     async def scan_udp(self, ip: str, port: int) -> Dict:
-
         if self.cancel_flag:
             return {"status": "cancelled"}
 
@@ -77,7 +75,7 @@ class PortScanner:
 
             return {
                 "protocol": "udp",
-                "status": status,          # open | open|filtered
+                "status": status,  # open | open|filtered
                 "service_name": guess_service(port),
                 "service_version": None,
             }
@@ -107,7 +105,6 @@ class PortScanner:
         finally:
             sock.close()
 
-
     # BANNER GRABBING
     async def _read_banner(self, reader: asyncio.StreamReader) -> Optional[str]:
         try:
@@ -118,10 +115,8 @@ class PortScanner:
         except Exception:
             return None
 
-
     # MULTIPORT CONCURRENCY SAFE + PROGRESO + CANCEL
     async def scan_ports(self, ip: str, ports: List[int], progress_cb=None) -> Dict[int, Dict]:
-
         self.reset_cancel()
 
         semaphore = asyncio.Semaphore(self.semaphore_limit)
@@ -132,7 +127,6 @@ class PortScanner:
             nonlocal completed
 
             async with semaphore:
-
                 if self.cancel_flag:
                     return port, {"status": "cancelled"}
 
@@ -142,13 +136,15 @@ class PortScanner:
 
                 # Emitir progreso
                 if progress_cb:
-                    await progress_cb({
-                        "type": "progress",
-                        "completed": completed,
-                        "total": total,
-                        "percent": round((completed / total) * 100, 2),
-                        "current_port": port
-                    })
+                    await progress_cb(
+                        {
+                            "type": "progress",
+                            "completed": completed,
+                            "total": total,
+                            "percent": round((completed / total) * 100, 2),
+                            "current_port": port,
+                        }
+                    )
 
                 return port, result
 
@@ -157,9 +153,7 @@ class PortScanner:
 
         # Filtra solo abiertos y filtrando
         filtered = {
-            port: result
-            for port, result in raw
-            if result.get("status") in ("open", "open|filtered", "filtered")
+            port: result for port, result in raw if result.get("status") in ("open", "open|filtered", "filtered")
         }
 
         return filtered
@@ -170,7 +164,6 @@ port_scanner = PortScanner(timeout=1.0)
 
 
 async def scan_single_host(ip: str, ports_raw: Optional[str] = None, progress_cb=None) -> Dict:
-
     ports = normalize_ports(ports_raw)
 
     # Prioriza puertos comunes
@@ -195,7 +188,3 @@ async def scan_single_host(ip: str, ports_raw: Optional[str] = None, progress_cb
         "open_ports": list(results.keys()),
         "cancelled": port_scanner.cancel_flag,
     }
-
-
-
-

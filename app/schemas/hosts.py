@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import Optional, List
+from typing import List, Optional
 
 from pydantic import BaseModel, Field
 
@@ -20,6 +20,7 @@ class HostCreate(HostBase):
     Para creación:
     - user_id es necesario para relacionar el escaneo al usuario logueado
     """
+
     user_id: int
 
 
@@ -37,7 +38,7 @@ class HostOut(HostBase):
     scan_date: datetime
     total_ports: int
     high_risk_count: int
-    user_id: int 
+    user_id: int
 
     model_config = {"from_attributes": True}
 
@@ -48,5 +49,3 @@ class HostDetailOut(HostOut):
     risk_assessments: List[RiskOut] = []
 
     model_config = {"from_attributes": True}
-
-

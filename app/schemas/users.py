@@ -1,8 +1,9 @@
 from datetime import datetime
-from typing import Optional, List
+from typing import List, Optional
+
 from pydantic import BaseModel, EmailStr, Field
 
-from app.schemas.hosts import HostOut   # <-- ahora sí, relación correcta
+from app.schemas.hosts import HostOut  # <-- ahora sí, relación correcta
 
 
 # Base
@@ -41,8 +42,7 @@ class UserWithHosts(UserOut):
     - /reports/history
     - vistas de historial en el dashboard
     """
+
     hosts: List[HostOut] = []  # se llena automáticamente vía ORM
 
     model_config = {"from_attributes": True}
-
-
