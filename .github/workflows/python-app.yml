@@ -5,7 +5,6 @@ on:
     branches: [ main ]
   pull_request:
     branches: [ main ]
-
   release:
     types: [published]
 
@@ -16,7 +15,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout del codigo
+      - name: Checkout del código
         uses: actions/checkout@v4
 
       - name: Configurar Python 3.12
@@ -29,15 +28,11 @@ jobs:
         run: |
           python -m pip install --upgrade pip
 
-          # Instalar requirements sin PyTorch CPU
           pip install --no-cache-dir -r requirements.txt
-
-          # Instalar PyTorch CPU (3.12 compatible)
           pip install torch==2.9.1 --index-url https://download.pytorch.org/whl/cpu
           pip install torchaudio==2.9.1 --index-url https://download.pytorch.org/whl/cpu
           pip install torchvision==0.24.1 --index-url https://download.pytorch.org/whl/cpu
 
-          # Linter y pruebas
           pip install pytest ruff
 
       - name: Analizar estilo con Ruff
@@ -49,21 +44,24 @@ jobs:
           pytest test -q
 
 
+
   docker:
-    name: Build & Push Docker Image
     needs: build
     runs-on: ubuntu-latest
+
+    env:
+      SUPABASE_PASSWORD: ${{ secrets.SUPABASE_PASSWORD }}
 
     steps:
       - name: Checkout del código
         uses: actions/checkout@v4
 
-      - name: Configurar Buildx (driver container)
+      - name: Configurar Docker Buildx
         uses: docker/setup-buildx-action@v3
         with:
           driver: docker-container
 
-      - name: Login en Docker Hub
+      - name: Iniciar sesión en Docker Hub
         uses: docker/login-action@v3
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
@@ -78,20 +76,26 @@ jobs:
             echo "TAG=${{ github.sha }}" >> $GITHUB_OUTPUT
           fi
 
-      - name: Build & Push Imagen Docker (solo amd64, rápido)
+      - name: Construir y subir imagen a Docker Hub
         uses: docker/build-push-action@v5
         with:
           context: .
           file: ./dockerfile
           push: true
           platforms: linux/amd64
+
+          build-args: |
+            SUPABASE_PASSWORD=${{ secrets.SUPABASE_PASSWORD }}
+
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
           tags: |
             ${{ secrets.DOCKERHUB_USERNAME }}/vulnports:latest
             ${{ secrets.DOCKERHUB_USERNAME }}/vulnports:${{ steps.vars.outputs.TAG }}
 
       - name: Verificar imagen subida
         run: docker pull ${{ secrets.DOCKERHUB_USERNAME }}/vulnports:latest
+
 
 
