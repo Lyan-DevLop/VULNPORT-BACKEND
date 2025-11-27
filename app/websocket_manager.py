@@ -1,5 +1,3 @@
-# app/websocket_manager.py
-
 from typing import Any, Dict, List
 
 from fastapi import WebSocket

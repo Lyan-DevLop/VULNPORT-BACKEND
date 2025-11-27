@@ -1,0 +1,8 @@
+python -m venv venv # 1. Crear entorno virtual
+venv\Scripts\activate # 2. Activar el entorno virtual
+pip install -r requirements.txt # 3. Instalar dependencias
+example.env → .env # 4. Convierten el archivo example.env en el .env de su proyecto
+uvicorn app.main:app --reload --host 0.0.0.0 --port 8000 # 5. Corren el sistema
+
+# No elimine el .gitignore solo lo ajuste y les agregue el example para que no tengan problema con la BD
+

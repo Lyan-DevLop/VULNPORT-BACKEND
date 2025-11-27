@@ -1,113 +1,49 @@
 # ================================
-#   PYTHON
+# PYTHON
 # ================================
 __pycache__/
 *.py[cod]
 *$py.class
-*.pyo
-*.pyd
-*.pdb
 
 # Entornos virtuales
 venv/
-.env/
 .venv/
 env/
 ENV/
 
-# Archivos temporales
+# ================================
+# CONFIGURACIÓN SENSIBLE
+# ================================
+.env
+*.env
+!example.env  # Permitimos solo un template
+
+# ================================
+# LOGS
+# ================================
 *.log
+logs/
 *.tmp
 *.temp
 
-# Archivos de compilación
-dist/
-build/
-*.egg-info/
-*.egg
-.eggs/
-
 # ================================
-#   FASTAPI / CONFIG
+# DOCKER
 # ================================
-# Configuracion sensible
-.env
-*.env
-*.ini
-*.toml
-
-# SSL keys (nunca subir)
-certs/
-*.pem
-*.key
-*.crt
-
-# Archivos locales de desarrollo
-app/core/local_settings.py
-
-# ================================
-#   BASE DE DATOS
-# ================================
-# SQLite (por si algún dev usa local)
-*.db
-*.sqlite
-*.sqlite3
-
-# Postgres dumps
-*.sql
-*.dump
-
-# ================================
-#   INTELIGENCIA ARTIFICIAL
-# ================================
-# Modelos entrenados
-risk_model.pkl
-risk_scaler.pkl
-*.pkl
-*.joblib
-
-# ================================
-#   DOCKER
-# ================================
-# Archivos generados al build
-docker-data/
 .docker/
+docker-data/
 docker-compose.override.yml
 
 # ================================
-#   NVD / CACHE
+# IDEs
 # ================================
-# Cache de peticiones (si decides guardar)
-nvd_cache/
-*.cache
-
-# ================================
-#   IDE / EDITORES
-# ================================
-# VSCode
 .vscode/
-.vscode/*
-
-# JetBrains / PyCharm
 .idea/
-.idea/*
-
-# Sublime
-*.sublime-project
-*.sublime-workspace
 
 # ================================
-#   SISTEMA OPERATIVO
-# ================================
-.DS_Store
-Thumbs.db
-
-# ================================
-#   FRONTEND (si usas React/Electron)
+# FRONTEND (si existe)
 # ================================
 node_modules/
-npm-debug.log
-yarn-debug.log
-yarn-error.log
 dist/
 build/
+
+

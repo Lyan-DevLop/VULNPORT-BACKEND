@@ -8,7 +8,7 @@ class Settings(BaseSettings):
     APP_NAME: str = "VULNPORTS Backend"
     DEBUG: bool = False
 
-    DATABASE_URL: str = "sqlite:///network.db"
+    DATABASE_URL: str = "postgresql://postgres.tiortfqvhbpulhovbtmz:Vacios%23Port9900%2A@aws-1-us-east-1.pooler.supabase.com:5432/postgres"
 
     JWT_SECRET_KEY: str = "supersecret"
     JWT_ALGORITHM: str = "HS256"
