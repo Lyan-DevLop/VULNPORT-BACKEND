@@ -1,0 +1,56 @@
+# ------------- RUFF CONFIG PARA VULNPORTS -------------
+
+# Versión de Python
+target-version = "py312"
+
+# Longitud de línea en todo el proyecto
+line-length = 120
+
+# ============================
+#     Reglas de Lint
+# ============================
+[lint]
+# Seleccionar grupos básicos (equivalente a Flake8)
+select = [
+    "E",   # Errores de estilo
+    "F",   # PyFlakes
+    "I",   # Ordenamiento de imports (isort)
+]
+
+# Reglas ignoradas
+ignore = [
+    "E501",  # Líneas largas (lo controla line-length)
+]
+
+# Carpetas a excluir
+exclude = [
+    ".git",
+    ".github",
+    "__pycache__",
+    "venv",
+    "env",
+    ".env",
+    "desktop",
+    "dist",
+    "build",
+    "dockerfile",
+]
+
+# ============================
+#     Configuración ISORT
+# ============================
+[lint.isort]
+combine-as-imports = true
+
+# ============================
+#       Formateador
+# ============================
+[format]
+quote-style = "double"
+indent-style = "space"
+line-ending = "auto"
+docstring-code-format = true
+
+
+
+
