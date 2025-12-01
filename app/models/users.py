@@ -16,5 +16,5 @@ class User(Base):
     role = Column(String(20), default="user")  # admin / user
     created_at = Column(DateTime, default=datetime.utcnow)
 
-    # 🔥 RELACIÓN INVERSA
+    #RELACIÓN INVERSA
     hosts = relationship("Host", back_populates="user", cascade="all, delete-orphan", passive_deletes=True)

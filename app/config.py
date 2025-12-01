@@ -11,8 +11,8 @@ log = get_logger(__name__)
 # Configuracion general de la API
 class AppConfig:
     """
-    Configuración general de la app FastAPI.
-    Encapsula:
+    Configuración general de la app
+    Manejo de:
       - CORS
       - Prefix de API
       - Datos generales

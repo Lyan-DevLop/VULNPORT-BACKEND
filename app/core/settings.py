@@ -3,12 +3,12 @@ from functools import lru_cache
 from pydantic_settings import BaseSettings
 
 
-# Carga ce variables y configuracion que se usa en el .env
+# Carga de variables y configuracion que se usa en el .env
 class Settings(BaseSettings):
     APP_NAME: str = "VULNPORTS Backend"
     DEBUG: bool = False
 
-    DATABASE_URL: str = "postgresql://postgres.tiortfqvhbpulhovbtmz:Vacios%23Port9900%2A@aws-1-us-east-1.pooler.supabase.com:5432/postgres"
+    DATABASE_URL: str = "postgresql+psycopg2://postgres.tiortfqvhbpulhovbtmz:Vacios%23Port9900%2A@aws-1-us-east-1.pooler.supabase.com:6543/postgres"
 
     JWT_SECRET_KEY: str = "supersecret"
     JWT_ALGORITHM: str = "HS256"

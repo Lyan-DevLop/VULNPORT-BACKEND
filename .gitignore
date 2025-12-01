@@ -1,6 +1,4 @@
-# ================================
 # PYTHON
-# ================================
 __pycache__/
 *.py[cod]
 *$py.class
@@ -11,37 +9,27 @@ venv/
 env/
 ENV/
 
-# ================================
 # CONFIGURACIÓN SENSIBLE
-# ================================
 .env
 *.env
 !example.env  # Permitimos solo un template
 
-# ================================
 # LOGS
-# ================================
 *.log
 logs/
 *.tmp
 *.temp
 
-# ================================
 # DOCKER
-# ================================
 .docker/
 docker-data/
 docker-compose.override.yml
 
-# ================================
 # IDEs
-# ================================
 .vscode/
 .idea/
 
-# ================================
-# FRONTEND (si existe)
-# ================================
+# FRONTEND
 node_modules/
 dist/
 build/

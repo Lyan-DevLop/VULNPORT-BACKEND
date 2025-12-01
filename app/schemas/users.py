@@ -3,7 +3,7 @@ from typing import List, Optional
 
 from pydantic import BaseModel, EmailStr, Field
 
-from app.schemas.hosts import HostOut  # <-- ahora sí, relación correcta
+from app.schemas.hosts import HostOut
 
 
 # Base
