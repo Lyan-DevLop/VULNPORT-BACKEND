@@ -2,7 +2,7 @@ import ipaddress
 import socket
 
 # Importamos Scapy.
-# Si no está disponible, ARP-scan quedará deshabilitado.
+# Si no está disponible, ARP-scan queda deshabilitado.
 try:
     from scapy.all import ARP, Ether, srp
 

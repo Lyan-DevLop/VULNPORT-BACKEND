@@ -25,7 +25,6 @@ class CVELookupService:
 
         log.info(f"Buscando CVEs en NVD para: {keyword}")
 
-        # Fetch básico (sin parámetros extra porque tu NVDClient no los soporta)
         data = await nvd_client.fetch_cves(keyword)
 
         if not data or "vulnerabilities" not in data:

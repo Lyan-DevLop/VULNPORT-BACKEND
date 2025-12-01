@@ -8,13 +8,14 @@ from app.api.v1.hosts import router as hosts_router
 from app.api.v1.ports import router as ports_router
 from app.api.v1.reports import router as reports_router
 from app.api.v1.risk import router as risk_router
+from app.api.v1.risk_status import router as risk_status_router
 from app.api.v1.routes_scan import router as scan_router
+from app.api.v1.summary import router as summary_router
 from app.api.v1.users import router as users_router
 from app.api.v1.vulnerabilities import router as vulnerabilities_router
 from app.config import AppConfig, get_api_prefix
 from app.core.logger import get_logger
 from app.core.ssl_config import get_uvicorn_ssl_kwargs  # Config SSL para https
-from app.database import init_db
 
 log = get_logger(__name__)
 
@@ -40,6 +41,8 @@ def create_app() -> FastAPI:
     app.include_router(users_router, prefix=api_prefix)
     app.include_router(auth_router, prefix=api_prefix)
     app.include_router(reports_router, prefix=api_prefix)
+    app.include_router(summary_router, prefix=api_prefix)
+    app.include_router(risk_status_router,prefix=api_prefix)
     # Router de escaneo (incluye WebSocket /scan/ws)
     app.include_router(scan_router, prefix=api_prefix)
 
@@ -52,7 +55,7 @@ def create_app() -> FastAPI:
             "openapi": "/openapi.json",
         }
 
-    # verifica estado de la backend
+    # verifica estado general del backend
     @app.get("/health", tags=["Health"])
     def health_check():
         return {"status": "ok"}
@@ -81,10 +84,12 @@ app = create_app()
 # Eventos de ciclo de vida
 @app.on_event("startup")
 def on_startup():
+    """
+    Startup seguro para Supabase.
+    No ejecuta init_db() para evitar errores SSL y DDL.
+    """
     log.info("Iniciando aplicación...")
-    # Crear tablas si no existen
-    init_db()
-    log.info("Base de datos inicializada.")
+    log.info("Startup completado. init_db() deshabilitado para Supabase.")
 
 
 # Ejecución directa con SSL opcional (leyendo .env)
@@ -108,3 +113,4 @@ if __name__ == "__main__":
         reload=True,
         **ssl_kwargs,
     )
+

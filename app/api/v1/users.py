@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
+from app.api.deps import get_current_user
 from app.core.security import hash_password
 from app.database import get_db
 from app.models.users import User
@@ -28,6 +29,34 @@ def create_user(data: UserCreate, db: Session = Depends(get_db)):
     db.refresh(user)
     return user
 
+@router.get("/me", response_model=UserOut)
+def get_me(current_user: User = Depends(get_current_user)):
+    return current_user
+
+# Actualizar mi perfil
+@router.put("/me", response_model=UserOut)
+def update_me(
+    data: UserUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+
+    if data.username:
+        if db.query(User).filter(User.username == data.username, User.id != current_user.id).first():
+            raise HTTPException(400, "El username ya existe")
+        current_user.username = data.username
+
+    if data.email:
+        if db.query(User).filter(User.email == data.email, User.id != current_user.id).first():
+            raise HTTPException(400, "El email ya existe")
+        current_user.email = data.email
+
+    if data.password:
+        current_user.password_hash = hash_password(data.password)
+
+    db.commit()
+    db.refresh(current_user)
+    return current_user
 
 @router.get("/", response_model=list[UserOut])
 def list_users(db: Session = Depends(get_db)):
