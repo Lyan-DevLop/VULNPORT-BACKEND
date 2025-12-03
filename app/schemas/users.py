@@ -1,8 +1,9 @@
 from datetime import datetime
-from typing import Optional, List
+from typing import List, Optional
+
 from pydantic import BaseModel, EmailStr, Field
 
-from app.schemas.hosts import HostOut   # <-- ahora sí, relación correcta
+from app.schemas.hosts import HostOut
 
 
 # Base
@@ -23,26 +24,21 @@ class UserUpdate(BaseModel):
     password: Optional[str] = Field(None, min_length=6)
 
 
-# Salida Basica
+# Salida Básica
 class UserOut(UserBase):
     id: int
     role: str
     created_at: datetime
 
+    # 🔐 Campo agregado (NO expone secretos)
+    is_2fa_enabled: bool
+
     model_config = {"from_attributes": True}
 
 
-# Salida extendida (para historial)
+# Salida extendida
 class UserWithHosts(UserOut):
-    """
-    Incluye los hosts asociados al usuario.
-    Lo usarás para:
-    - /me/history
-    - /reports/history
-    - vistas de historial en el dashboard
-    """
-    hosts: List[HostOut] = []  # se llena automáticamente vía ORM
+    hosts: List[HostOut] = []
 
     model_config = {"from_attributes": True}
-
 

@@ -1,7 +1,9 @@
 # test_scan.py
 
 import asyncio
+
 from app.services.scanner.port_scanner import port_scanner
+
 
 async def test():
     ip = "scanme.nmap.org"

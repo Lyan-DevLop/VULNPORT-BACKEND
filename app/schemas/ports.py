@@ -1,5 +1,6 @@
 from datetime import datetime
-from typing import Optional, List
+from typing import List, Optional
+
 from pydantic import BaseModel, Field
 
 from .vulnerabilities import VulnerabilityOut
@@ -36,5 +37,3 @@ class PortOut(PortBase):
     vulnerabilities: List[VulnerabilityOut] = Field(default_factory=list)
 
     model_config = {"from_attributes": True}
-
-
