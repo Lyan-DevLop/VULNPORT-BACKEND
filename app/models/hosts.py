@@ -18,15 +18,45 @@ class Host(Base):
     total_ports = Column(Integer, default=0)
     high_risk_count = Column(Integer, default=0)
 
-    # Nuevo: ID del usuario dueño del escaneo
-    user_id = Column(BigInteger, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
-
-    # RELACIONES
-    ports = relationship("Port", back_populates="host", cascade="all, delete-orphan", passive_deletes=True)
-
-    risk_assessments = relationship(
-        "RiskAssessment", back_populates="host", cascade="all, delete-orphan", passive_deletes=True
+    user_id = Column(
+        BigInteger,
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
     )
 
-    # Relación opcional hacia usuarios
-    user = relationship("User", back_populates="hosts")
+    # ============================
+    # RELACIONES
+    # ============================
+
+    # 1) Puertos asociados al host
+    ports = relationship(
+        "Port",
+        back_populates="host",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+        lazy="selectin",     # RÁPIDO para frontend
+    )
+
+    # 2) Evaluaciones de riesgo
+    risk_assessments = relationship(
+        "RiskAssessment",
+        back_populates="host",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+        lazy="selectin",
+    )
+
+    # 3) Vulnerabilidades indirectas (a través de puertos)
+    vulnerabilities = relationship(
+        "Vulnerability",
+        secondary="ports",
+        primaryjoin="Host.id == Port.host_id",
+        secondaryjoin="Port.id == Vulnerability.port_id",
+        viewonly=True,
+        lazy="selectin",
+    )
+
+    # 4) Propietario del host
+    user = relationship("User", back_populates="hosts", lazy="joined")
+

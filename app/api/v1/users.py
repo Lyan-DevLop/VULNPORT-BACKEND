@@ -10,7 +10,9 @@ from app.schemas.users import UserCreate, UserOut, UserUpdate
 router = APIRouter(prefix="/users", tags=["Users"])
 
 
-# Endpoints de los usuarios
+# ===========================================================
+# 🧑 CREAR USUARIO
+# ===========================================================
 @router.post("/", response_model=UserOut)
 def create_user(data: UserCreate, db: Session = Depends(get_db)):
     if db.query(User).filter(User.username == data.username).first():
@@ -23,17 +25,31 @@ def create_user(data: UserCreate, db: Session = Depends(get_db)):
         username=data.username,
         email=data.email,
         password_hash=hash_password(data.password),
+        is_2fa_enabled=False,
+        totp_secret=None,
+        email_2fa_code=None,
+        email_2fa_expiration=None,
+        two_fa_attempts=0,
+        two_fa_locked_until=None
     )
+
     db.add(user)
     db.commit()
     db.refresh(user)
     return user
 
+
+# ===========================================================
+# 👤 OBTENER MI PERFIL
+# ===========================================================
 @router.get("/me", response_model=UserOut)
 def get_me(current_user: User = Depends(get_current_user)):
     return current_user
 
-# Actualizar mi perfil
+
+# ===========================================================
+# 🔧 ACTUALIZAR MI PERFIL
+# ===========================================================
 @router.put("/me", response_model=UserOut)
 def update_me(
     data: UserUpdate,
@@ -58,11 +74,18 @@ def update_me(
     db.refresh(current_user)
     return current_user
 
+
+# ===========================================================
+# 👥 LISTAR TODOS LOS USUARIOS
+# ===========================================================
 @router.get("/", response_model=list[UserOut])
 def list_users(db: Session = Depends(get_db)):
     return db.query(User).all()
 
 
+# ===========================================================
+# 🔎 OBTENER UN USUARIO POR ID
+# ===========================================================
 @router.get("/{user_id}", response_model=UserOut)
 def get_user(user_id: int, db: Session = Depends(get_db)):
     user = db.query(User).filter(User.id == user_id).first()
@@ -71,6 +94,9 @@ def get_user(user_id: int, db: Session = Depends(get_db)):
     return user
 
 
+# ===========================================================
+# 🛠️ ACTUALIZAR USUARIO POR ID
+# ===========================================================
 @router.put("/{user_id}", response_model=UserOut)
 def update_user(user_id: int, data: UserUpdate, db: Session = Depends(get_db)):
     user = db.query(User).filter(User.id == user_id).first()
@@ -88,6 +114,9 @@ def update_user(user_id: int, data: UserUpdate, db: Session = Depends(get_db)):
     return user
 
 
+# ===========================================================
+# ❌ ELIMINAR USUARIO
+# ===========================================================
 @router.delete("/{user_id}")
 def delete_user(user_id: int, db: Session = Depends(get_db)):
     user = db.query(User).filter(User.id == user_id).first()

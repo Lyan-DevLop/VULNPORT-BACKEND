@@ -1,37 +1,70 @@
 from datetime import date
 from typing import Optional
-
 from pydantic import BaseModel, Field
 
 
-# Base
+# ===========================
+# HOST
+# ===========================
+class HostOut(BaseModel):
+    id: int
+    ip_address: str
+    hostname: Optional[str] = None
+
+    model_config = {"from_attributes": True}
+
+
+# ===========================
+# PORT
+# ===========================
+class PortOut(BaseModel):
+    id: int
+    port_number: int
+    protocol: str
+    service_name: Optional[str] = None
+    host: Optional[HostOut] = None
+
+    model_config = {"from_attributes": True}
+
+
+# ===========================
+# VULNERABILITY BASE
+# ===========================
 class VulnerabilityBase(BaseModel):
     cve_id: Optional[str] = Field(None, max_length=20)
-    cvss_score: Optional[float] = Field(None, ge=0, le=10, description="CVSS v3 Score (0.0 - 10.0)")
-    severity: Optional[str] = Field(None, description="LOW, MEDIUM, HIGH, CRITICAL")
+    cvss_score: Optional[float] = Field(None, ge=0, le=10)
+    severity: Optional[str] = None
     description: Optional[str] = None
     published_date: Optional[date] = None
-    source: str = Field(default="NVD", description="Source of vulnerability data")
+    source: str = Field(default="NVD")
 
 
-# Crear Vulnerabilidad
+# ===========================
+# CREATE
+# ===========================
 class VulnerabilityCreate(VulnerabilityBase):
     port_id: int
 
 
-# Actualizar Vulnerabilidad
+# ===========================
+# UPDATE
+# ===========================
 class VulnerabilityUpdate(BaseModel):
-    cve_id: Optional[str] = Field(None, max_length=20)
-    cvss_score: Optional[float] = Field(None, ge=0, le=10)
+    cve_id: Optional[str] = None
+    cvss_score: Optional[float] = None
     severity: Optional[str] = None
     description: Optional[str] = None
     published_date: Optional[date] = None
     source: Optional[str] = None
 
 
-# Respuesta
+# ===========================
+# OUTPUT
+# ===========================
 class VulnerabilityOut(VulnerabilityBase):
     id: int
     port_id: int
+    port: Optional[PortOut] = None    # 👈🔥 RELACIÓN COMPLETA
 
     model_config = {"from_attributes": True}
+
