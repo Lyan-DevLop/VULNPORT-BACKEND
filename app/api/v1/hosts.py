@@ -1,13 +1,15 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session, selectinload
+from typing import Optional
+from datetime import datetime, timedelta
 
 from app.api.deps import get_current_user
 from app.database import get_db
 from app.models.hosts import Host
 from app.models.users import User
 from app.models.ports import Port
-from app.models.vulnerabilities import Vulnerability
 from app.schemas.hosts import HostCreate, HostOut, HostUpdate, HostDetailOut
+from app.api.v1.agent.models import Agent, CommandQueue
 
 router = APIRouter(prefix="/hosts", tags=["Hosts"])
 
@@ -16,18 +18,14 @@ router = APIRouter(prefix="/hosts", tags=["Hosts"])
 # CREAR HOST
 # ============================================================
 @router.post("/", response_model=HostOut)
-def create_host(
-    data: HostCreate,
-    db: Session = Depends(get_db),
-    user: User = Depends(get_current_user)
-):
-    """
-    Crea un host asignado al usuario autenticado.
-    """
-    if db.query(Host).filter(
+def create_host(data: HostCreate, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+
+    exists = db.query(Host).filter(
         Host.ip_address == data.ip_address,
         Host.user_id == user.id
-    ).first():
+    ).first()
+
+    if exists:
         raise HTTPException(400, "El host ya existe para este usuario")
 
     host = Host(
@@ -44,34 +42,15 @@ def create_host(
 
 
 # ============================================================
-# LISTAR TODOS LOS HOSTS (solo admins)
-# ============================================================
-@router.get("/", response_model=list[HostOut])
-def list_hosts(db: Session = Depends(get_db)):
-    return db.query(Host).all()
-
-
-# ============================================================
-# LISTAR MIS HOSTS (DETALLADO)
+# LISTAR MIS HOSTS DETALLADO (CON AGENTE)
 # ============================================================
 @router.get("/me", response_model=list[HostDetailOut])
-def list_my_hosts(
-    db: Session = Depends(get_db),
-    user: User = Depends(get_current_user)
-):
-    """
-    Devuelve los hosts del usuario actual con:
-    - Puertos
-    - Vulnerabilidades por puerto
-    - Vulnerabilidades agregadas
-    - Evaluaciones de riesgo
-    """
+def list_my_hosts(db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+
     hosts = (
         db.query(Host)
         .options(
-            selectinload(Host.ports).options(
-                selectinload(Port.vulnerabilities)
-            ),
+            selectinload(Host.ports).options(selectinload(Port.vulnerabilities)),
             selectinload(Host.vulnerabilities),
             selectinload(Host.risk_assessments)
         )
@@ -79,24 +58,38 @@ def list_my_hosts(
         .all()
     )
 
-    return hosts
+    enriched = []
+    for h in hosts:
+        agent_info = None
+
+        if h.agent_id:
+            agent = db.query(Agent).filter(Agent.id == h.agent_id).first()
+            if agent:
+                agent_info = {
+                    "id": agent.id,
+                    "hostname": agent.hostname,
+                    "os_type": agent.os_type,
+                    "last_seen": agent.last_seen,
+                    "status": "ONLINE"
+                    if (datetime.utcnow() - agent.last_seen) < timedelta(seconds=30)
+                    else "OFFLINE"
+                }
+
+        enriched.append({**h.__dict__, "agent": agent_info})
+
+    return enriched
 
 
 # ============================================================
-# OBTENER HOST DETALLADO /hosts/{id}
+# HOST DETALLADO
 # ============================================================
 @router.get("/{host_id}", response_model=HostDetailOut)
-def get_host(
-    host_id: int,
-    db: Session = Depends(get_db),
-    user: User = Depends(get_current_user),
-):
+def get_host(host_id: int, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+
     host = (
         db.query(Host)
         .options(
-            selectinload(Host.ports).options(
-                selectinload(Port.vulnerabilities)
-            ),
+            selectinload(Host.ports).options(selectinload(Port.vulnerabilities)),
             selectinload(Host.vulnerabilities),
             selectinload(Host.risk_assessments)
         )
@@ -110,44 +103,51 @@ def get_host(
     if host.user_id != user.id:
         raise HTTPException(403, "No autorizado")
 
-    return host
+    agent_info = None
+
+    if host.agent_id:
+        agent = db.query(Agent).filter(Agent.id == host.agent_id).first()
+        if agent:
+            agent_info = {
+                "id": agent.id,
+                "hostname": agent.hostname,
+                "os_type": agent.os_type,
+                "last_seen": agent.last_seen,
+                "status": "ONLINE"
+                if (datetime.utcnow() - agent.last_seen) < timedelta(seconds=30)
+                else "OFFLINE"
+            }
+
+    return {**host.__dict__, "agent": agent_info}
 
 
 # ============================================================
-# ACTUALIZAR HOST
+# ASIGNAR MANUALMENTE AGENTE
 # ============================================================
-@router.put("/{host_id}", response_model=HostOut)
-def update_host(
-    host_id: int,
-    data: HostUpdate,
-    db: Session = Depends(get_db),
-    user: User = Depends(get_current_user),
-):
+@router.put("/{host_id}/assign-agent")
+def assign_agent(host_id: int, agent_id: Optional[str] = None, db: Session = Depends(get_db)):
+
     host = db.query(Host).filter(Host.id == host_id).first()
-
     if not host:
-        raise HTTPException(404, "Host no encontrado")
+        raise HTTPException(404, "Host not found")
 
-    if host.user_id != user.id:
-        raise HTTPException(403, "No autorizado")
-
-    for k, v in data.dict(exclude_unset=True).items():
-        setattr(host, k, v)
-
+    host.agent_id = agent_id
     db.commit()
     db.refresh(host)
-    return host
+
+    return {
+        "message": "Agent assigned successfully" if agent_id else "Agent removed",
+        "host_id": host_id,
+        "agent_id": agent_id,
+    }
 
 
 # ============================================================
-# ELIMINAR HOST
+# NUEVO — CERRAR PUERTO DESDE EL HOST
 # ============================================================
-@router.delete("/{host_id}")
-def delete_host(
-    host_id: int,
-    db: Session = Depends(get_db),
-    user: User = Depends(get_current_user)
-):
+@router.post("/{host_id}/close-port")
+def host_close_port(host_id: int, port: int, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+
     host = db.query(Host).filter(Host.id == host_id).first()
 
     if not host:
@@ -156,9 +156,20 @@ def delete_host(
     if host.user_id != user.id:
         raise HTTPException(403, "No autorizado")
 
-    db.delete(host)
+    if not host.agent_id:
+        raise HTTPException(400, "Este host no tiene agente asignado")
+
+    cmd = CommandQueue(
+        agent_id=host.agent_id,
+        action="close_port",
+        port=port
+    )
+
+    db.add(cmd)
     db.commit()
 
-    return {"message": "Host eliminado"}
-
-
+    return {
+        "message": f"Comando para cerrar el puerto {port} enviado correctamente.",
+        "agent_id": host.agent_id,
+        "port": port
+    }

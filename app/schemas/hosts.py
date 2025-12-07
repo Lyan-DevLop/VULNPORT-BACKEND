@@ -1,83 +1,45 @@
-from datetime import datetime, date
+from datetime import datetime
 from typing import List, Optional
 
 from pydantic import BaseModel, Field
 
-
-# ============================================================
-# 🔹 Vulnerability Mini (para puertos y hosts)
-# ============================================================
-class VulnerabilityMini(BaseModel):
-    id: int
-    cve_id: Optional[str] = None
-    severity: Optional[str] = None
-    cvss_score: Optional[float] = None
-
-    model_config = {"from_attributes": True}
+from .ports import PortOut as PortDetailOut
+from .risk import RiskOut
+from .vulnerabilities import VulnerabilityMini
 
 
 # ============================================================
-# 🔹 PORT OUT (con vulnerabilidades anidadas)
-# ============================================================
-class PortOut(BaseModel):
-    id: int
-    port_number: int
-    protocol: str
-    service_name: Optional[str] = None
-    service_version: Optional[str] = None
-    status: str
-    scanned_at: datetime
-
-    # Vulnerabilidades del puerto
-    vulnerabilities: List[VulnerabilityMini] = []
-
-    model_config = {"from_attributes": True}
-
-
-# ============================================================
-# 🔹 RISK OUT (si ya lo tienes definido)
-# ============================================================
-class RiskOut(BaseModel):
-    id: int
-    score: Optional[float] = Field(alias="overall_risk_score")
-    level: Optional[str] = Field(alias="risk_level")
-    evaluated_at: datetime
-    model_version: Optional[str] = None
-
-    model_config = {
-        "from_attributes": True,
-        "populate_by_name": True
-    }
-
-
-# ============================================================
-# 🔹 HOST BASE
+# HOST BASE
 # ============================================================
 class HostBase(BaseModel):
     ip_address: str = Field(..., max_length=45)
     hostname: Optional[str] = None
     os_detected: Optional[str] = None
 
+    # Relación con agente remoto
+    agent_id: Optional[str] = None
+
 
 # ============================================================
-# 🔹 HOST CREATE
+# HOST CREATE
 # ============================================================
 class HostCreate(HostBase):
     user_id: int
 
 
 # ============================================================
-# 🔹 HOST UPDATE
+# HOST UPDATE
 # ============================================================
 class HostUpdate(BaseModel):
     hostname: Optional[str] = None
     os_detected: Optional[str] = None
     total_ports: Optional[int] = None
     high_risk_count: Optional[int] = None
+    agent_id: Optional[str] = None
 
 
 # ============================================================
-# 🔹 HOST OUT (lista)
+# HOST OUT (básico)
 # ============================================================
 class HostOut(HostBase):
     id: int
@@ -90,17 +52,30 @@ class HostOut(HostBase):
 
 
 # ============================================================
-# 🔥 HOST DETALLADO (TODO LO QUE NECESITA EL FRONTEND)
+# HOST DETALLADO (con puertos, riesgos, vulns y AGENTE)
 # ============================================================
 class HostDetailOut(HostOut):
-    # Puertos con vulnerabilidades anidadas
-    ports: List[PortOut] = []
-
-    # Evaluaciones de riesgo
+    ports: List[PortDetailOut] = []
     risk_assessments: List[RiskOut] = []
-
-    # Vulnerabilidades agregadas del host (secundaria)
     vulnerabilities: List[VulnerabilityMini] = []
+    agent_id: Optional[str] = None
+
+    # 🔥 NUEVO → Información completa del agente
+    agent: Optional[dict] = None
 
     model_config = {"from_attributes": True}
 
+
+# ============================================================
+# HOST SUMMARY (para dashboards)
+# ============================================================
+class HostSummaryOut(BaseModel):
+    id: int
+    ip_address: str
+    total_ports: int
+    total_vulns: int
+    risk_level: Optional[str] = "N/A"
+    risk_score: Optional[float] = 0.0
+    scan_date: datetime
+
+    model_config = {"from_attributes": True}

@@ -1,12 +1,13 @@
 from datetime import date
 from typing import Optional
+
 from pydantic import BaseModel, Field
 
 
 # ===========================
-# HOST
+# HOST LIGERO (si lo necesitas)
 # ===========================
-class HostOut(BaseModel):
+class HostLite(BaseModel):
     id: int
     ip_address: str
     hostname: Optional[str] = None
@@ -15,14 +16,14 @@ class HostOut(BaseModel):
 
 
 # ===========================
-# PORT
+# PORT LIGERO PARA VULNS
 # ===========================
-class PortOut(BaseModel):
+class PortLite(BaseModel):
     id: int
     port_number: int
     protocol: str
     service_name: Optional[str] = None
-    host: Optional[HostOut] = None
+    host: Optional[HostLite] = None
 
     model_config = {"from_attributes": True}
 
@@ -39,16 +40,10 @@ class VulnerabilityBase(BaseModel):
     source: str = Field(default="NVD")
 
 
-# ===========================
-# CREATE
-# ===========================
 class VulnerabilityCreate(VulnerabilityBase):
     port_id: int
 
 
-# ===========================
-# UPDATE
-# ===========================
 class VulnerabilityUpdate(BaseModel):
     cve_id: Optional[str] = None
     cvss_score: Optional[float] = None
@@ -58,13 +53,23 @@ class VulnerabilityUpdate(BaseModel):
     source: Optional[str] = None
 
 
-# ===========================
-# OUTPUT
-# ===========================
 class VulnerabilityOut(VulnerabilityBase):
     id: int
     port_id: int
-    port: Optional[PortOut] = None    # 👈🔥 RELACIÓN COMPLETA
+    port: Optional[PortLite] = None
 
     model_config = {"from_attributes": True}
+
+
+# ============================================================
+# VERSIÓN MINI (para hosts / resúmenes / riesgos)
+# ============================================================
+class VulnerabilityMini(BaseModel):
+    id: int
+    cve_id: Optional[str] = None
+    severity: Optional[str] = None
+    cvss_score: Optional[float] = None
+
+    model_config = {"from_attributes": True}
+
 

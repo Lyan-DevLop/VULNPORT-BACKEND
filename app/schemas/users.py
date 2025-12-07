@@ -6,39 +6,33 @@ from pydantic import BaseModel, EmailStr, Field
 from app.schemas.hosts import HostOut
 
 
-# Base
 class UserBase(BaseModel):
     username: str = Field(..., max_length=50)
     email: EmailStr
 
 
-# Crear Usuario
 class UserCreate(UserBase):
     password: str = Field(..., min_length=6)
 
 
-# Actualizar usuario
 class UserUpdate(BaseModel):
     username: Optional[str] = Field(None, max_length=50)
     email: Optional[EmailStr] = None
     password: Optional[str] = Field(None, min_length=6)
 
 
-# Salida Básica
 class UserOut(UserBase):
     id: int
     role: str
     created_at: datetime
-
-    # 🔐 Campo agregado (NO expone secretos)
     is_2fa_enabled: bool
 
     model_config = {"from_attributes": True}
 
 
-# Salida extendida
 class UserWithHosts(UserOut):
     hosts: List[HostOut] = []
 
     model_config = {"from_attributes": True}
+
 

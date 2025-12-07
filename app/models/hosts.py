@@ -18,6 +18,9 @@ class Host(Base):
     total_ports = Column(Integer, default=0)
     high_risk_count = Column(Integer, default=0)
 
+    # 🔥 NUEVO: Relación con agente remoto (Python Agent)
+    agent_id = Column(String(255), ForeignKey("agents.id"), nullable=True)
+
     user_id = Column(
         BigInteger,
         ForeignKey("users.id", ondelete="CASCADE"),
@@ -35,7 +38,7 @@ class Host(Base):
         back_populates="host",
         cascade="all, delete-orphan",
         passive_deletes=True,
-        lazy="selectin",     # RÁPIDO para frontend
+        lazy="selectin",
     )
 
     # 2) Evaluaciones de riesgo
@@ -59,4 +62,3 @@ class Host(Base):
 
     # 4) Propietario del host
     user = relationship("User", back_populates="hosts", lazy="joined")
-

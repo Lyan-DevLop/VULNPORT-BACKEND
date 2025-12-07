@@ -16,6 +16,7 @@ from app.api.v1.vulnerabilities import router as vulnerabilities_router
 from app.config import AppConfig, get_api_prefix
 from app.core.logger import get_logger
 from app.api.v1.twofa.router import router as twofa_router
+from app.api.v1.agent.router import router as agent_router
 from app.core.ssl_config import get_uvicorn_ssl_kwargs  # Config SSL para https
 
 log = get_logger(__name__)
@@ -45,6 +46,7 @@ def create_app() -> FastAPI:
     app.include_router(summary_router, prefix=api_prefix)
     app.include_router(risk_status_router,prefix=api_prefix)
     app.include_router(twofa_router,prefix="/api/v1")
+    app.include_router(agent_router, prefix="/api/v1")
     # Router de escaneo (incluye WebSocket /scan/ws)
     app.include_router(scan_router, prefix=api_prefix)
 
