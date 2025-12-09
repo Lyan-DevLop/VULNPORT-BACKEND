@@ -1,7 +1,9 @@
-from fastapi import APIRouter, Depends, HTTPException
+from typing import Optional
+from io import BytesIO
+
+from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
-from io import BytesIO
 import qrcode
 import pyotp
 
@@ -22,27 +24,27 @@ router = APIRouter(prefix="/twofa", tags=["2FA"])
 # 🔍 ESTADO ACTUAL DE 2FA
 # ======================================================
 @router.get("/status")
-def twofa_status(
-    current_user: User = Depends(get_current_user)
-):
+def twofa_status(current_user: User = Depends(get_current_user)):
     return {
         "is_enabled": current_user.is_2fa_enabled,
         "has_totp": current_user.totp_secret is not None,
-        "email": current_user.email
+        "email": current_user.email,
     }
 
 
 # ======================================================
-# 🔐 GENERAR SECRETO TOTP
+# 🔐 GENERAR SECRETO TOTP (para app Authenticator)
 # ======================================================
 @router.post("/generate-secret")
 def generate_secret(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    # Si ya existe un secreto y 2FA está activo, evitar regeneración
     if current_user.totp_secret and current_user.is_2fa_enabled:
-        raise HTTPException(400, "2FA activo. Primero debes desactivar antes de regenerar el secreto.")
+        raise HTTPException(
+            400,
+            "2FA activo. Primero debes desactivar antes de regenerar el secreto."
+        )
 
     secret = pyotp.random_base32()
     current_user.totp_secret = secret
@@ -52,12 +54,35 @@ def generate_secret(
 
 
 # ======================================================
-# 🔳 GENERAR QR PARA AUTHENTICATOR (PARA FRONT)
+# 🔳 GENERAR QR PARA AUTHENTICATOR
 # ======================================================
 @router.get("/qr")
-def get_qr(secret: str):
-    uri = pyotp.TOTP(secret).provisioning_uri(
-        name="VULNPORTS",
+def get_qr(
+    request: Request,
+    secret: Optional[str] = None,
+    db: Session = Depends(get_db)
+):
+    # Leer token desde query ?token=xxxx
+    token = request.query_params.get("token")
+
+    if not token:
+        raise HTTPException(401, "Token requerido.")
+
+    # Obtener usuario desde token manualmente
+    try:
+        current_user = get_user_from_token(token, db)
+    except:
+        raise HTTPException(401, "Token inválido.")
+
+    # Usar el secreto apropiado
+    secret_to_use = secret or current_user.totp_secret
+    if not secret_to_use:
+        raise HTTPException(400, "No hay secreto TOTP registrado.")
+
+    label = f"{current_user.username} ({current_user.email})"
+
+    uri = pyotp.TOTP(secret_to_use).provisioning_uri(
+        name=label,
         issuer_name="VULNPORTS"
     )
 
@@ -71,19 +96,21 @@ def get_qr(secret: str):
 
 
 # ======================================================
-# ✉️ ENVIAR CÓDIGO POR EMAIL
+# ✉️ ENVIAR CÓDIGO POR EMAIL (SETUP)
 # ======================================================
 @router.post("/email/send")
 def twofa_email_send(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    send_email_2fa_code(current_user, db)
+    ok = send_email_2fa_code(current_user, db)
+    if not ok:
+        raise HTTPException(500, "No se pudo enviar el correo 2FA.")
     return {"message": "Código enviado al correo."}
 
 
 # ======================================================
-# 📝 VALIDAR 2FA DURANTE SETUP (ACTIVA 2FA)
+# 📝 ACTIVAR 2FA
 # ======================================================
 @router.post("/verify")
 def verify_twofa(
@@ -99,11 +126,12 @@ def verify_twofa(
 
     check_attempts(current_user)
 
-    valid = (
-        verify_email_code(current_user, code)
-        if method == "email" else
-        verify_totp_code(current_user, code)
-    )
+    if method == "email":
+        valid = verify_email_code(current_user, code)
+    elif method == "totp":
+        valid = verify_totp_code(current_user, code)
+    else:
+        raise HTTPException(400, "Método inválido.")
 
     if not valid:
         register_failed_attempt(current_user, db)
@@ -132,12 +160,9 @@ def disable_twofa(
         raise HTTPException(400, "El 2FA no está activado.")
 
     if not code:
-        raise HTTPException(400, "Debe enviar código de verificación.")
+        raise HTTPException(400, "Debe enviar código.")
 
-    valid = (
-        verify_email_code(current_user, code)
-        or verify_totp_code(current_user, code)
-    )
+    valid = verify_email_code(current_user, code) or verify_totp_code(current_user, code)
 
     if not valid:
         raise HTTPException(401, "Código inválido.")
@@ -146,64 +171,3 @@ def disable_twofa(
     db.commit()
 
     return {"message": "2FA desactivado correctamente."}
-
-
-# ======================================================
-# 🔄 REGENERAR SECRETO
-# ======================================================
-@router.post("/regenerate-secret")
-def regenerate_secret(
-    payload: dict,
-    current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db)
-):
-    code = payload.get("code")
-
-    if not current_user.is_2fa_enabled:
-        raise HTTPException(400, "Debes tener 2FA habilitado para regenerar el secreto.")
-
-    if not code:
-        raise HTTPException(400, "Debe enviar código de verificación.")
-
-    valid = (
-        verify_email_code(current_user, code)
-        or verify_totp_code(current_user, code)
-    )
-
-    if not valid:
-        raise HTTPException(401, "Código incorrecto.")
-
-    new_secret = pyotp.random_base32()
-    current_user.totp_secret = new_secret
-    db.commit()
-
-    return {"message": "Secreto regenerado.", "secret": new_secret}
-
-
-# ======================================================
-# 👁 VALIDACIÓN EN TIEMPO REAL (para el frontend)
-# ======================================================
-@router.post("/check")
-def check_2fa_code(payload: dict, db: Session = Depends(get_db)):
-    user_id = payload.get("user_id")
-    method = payload.get("method")
-    code = payload.get("code")
-
-    if not user_id or not method or not code:
-        raise HTTPException(400, "Datos incompletos")
-
-    user = db.query(User).filter(User.id == user_id).first()
-    if not user:
-        raise HTTPException(404, "Usuario no encontrado")
-
-    # Validación SIN activar 2FA ni generar tokens
-    if method == "totp":
-        valid = verify_totp_code(user, code)
-    elif method == "email":
-        valid = verify_email_code(user, code)
-    else:
-        raise HTTPException(400, "Método inválido")
-
-    return {"valid": valid}
-
-

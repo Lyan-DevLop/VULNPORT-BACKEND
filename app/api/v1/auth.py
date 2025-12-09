@@ -3,7 +3,6 @@ from fastapi import APIRouter, Depends, HTTPException
 from fastapi.security import OAuth2PasswordRequestForm
 from jose import jwt
 from sqlalchemy.orm import Session
-
 from pydantic import BaseModel
 
 from app.core.security import create_access_token, verify_password, hash_password
@@ -12,12 +11,16 @@ from app.database import get_db
 from app.models.users import User
 from app.api.deps import get_current_user
 
-# 2FA
-from app.api.v1.twofa.service_2fa import verify_email_code, verify_totp_code
+# 2FA servicios
+from app.api.v1.twofa.service_2fa import (
+    verify_email_code,
+    verify_totp_code,
+    send_email_2fa_code,
+)
 from app.api.v1.twofa.limiter import (
     check_attempts,
     register_failed_attempt,
-    reset_attempts
+    reset_attempts,
 )
 
 router = APIRouter(prefix="/auth", tags=["Auth"])
@@ -44,7 +47,7 @@ def login(
     if not verify_password(form.password, user.password_hash):
         raise HTTPException(400, "Credenciales inválidas")
 
-    # 2FA
+    # 2FA activado → se requiere fase 2
     if user.is_2fa_enabled:
         return {
             "needs_2fa": True,
@@ -73,6 +76,30 @@ def login(
 
 
 # ===========================================================
+# ✉️ ENVIAR CÓDIGO 2FA DURANTE EL LOGIN (usuario NO logueado)
+# ===========================================================
+@router.post("/login/email/send")
+def send_login_email_code(payload: dict, db: Session = Depends(get_db)):
+    user_id = payload.get("user_id")
+    if not user_id:
+        raise HTTPException(400, "Debe enviar user_id.")
+
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise HTTPException(404, "Usuario no encontrado.")
+
+    # Validar intentos en email login
+    check_attempts(user)
+
+    # Generar y enviar código
+    from app.api.v1.twofa.service_2fa import send_email_2fa_code
+    send_email_2fa_code(user, db)
+
+    return {"message": "Código enviado al correo del usuario."}
+
+
+
+# ===========================================================
 # 🔑 LOGIN 2FA (FASE 2)
 # ===========================================================
 @router.post("/login/2fa")
@@ -86,19 +113,20 @@ def login_2fa(payload: dict, db: Session = Depends(get_db)):
         raise HTTPException(400, "Datos incompletos")
 
     user = db.query(User).filter(User.id == user_id).first()
-
     if not user:
         raise HTTPException(404, "Usuario no encontrado")
 
-    # Intentos solo para email
+    # Intentos solo aplican para email (no para totp)
     if method == "email":
         check_attempts(user)
 
-    valid = (
-        verify_email_code(user, code)
-        if method == "email" else
-        verify_totp_code(user, code)
-    )
+    # Validación
+    if method == "email":
+        valid = verify_email_code(user, code)
+    elif method == "totp":
+        valid = verify_totp_code(user, code)
+    else:
+        raise HTTPException(400, "Método inválido")
 
     if not valid:
         if method == "email":
@@ -108,14 +136,15 @@ def login_2fa(payload: dict, db: Session = Depends(get_db)):
     if method == "email":
         reset_attempts(user, db)
 
+    # Generar tokens tras login exitoso
     access_token = create_access_token(
         data={"sub": str(user.id)},
-        expires_delta=timedelta(minutes=ACCESS_TOKEN_EXPIRE_MIN),
+        expires_delta=timedelta(minutes=ACCESS_TOKEN_EXPIRE_MIN)
     )
 
     refresh_token = create_access_token(
         data={"sub": str(user.id), "type": "refresh"},
-        expires_delta=timedelta(days=REFRESH_TOKEN_EXPIRE_DAYS),
+        expires_delta=timedelta(days=REFRESH_TOKEN_EXPIRE_DAYS)
     )
 
     return {
@@ -124,8 +153,6 @@ def login_2fa(payload: dict, db: Session = Depends(get_db)):
         "token_type": "bearer",
         "user_id": user.id
     }
-
-
 
 
 # ===========================================================
@@ -164,7 +191,7 @@ def refresh_token(refresh_token: str, db: Session = Depends(get_db)):
 
 
 # ===========================================================
-# 🔒 CAMBIO DE CONTRASEÑA CON 2FA (SEGURO)
+# 🔒 CAMBIO DE CONTRASEÑA CON 2FA
 # ===========================================================
 class PasswordChangeRequest(BaseModel):
     current_password: str
@@ -183,30 +210,32 @@ def change_password(
     if not verify_password(data.current_password, user.password_hash):
         raise HTTPException(400, "La contraseña actual es incorrecta")
 
-    # 2️⃣ Intentos fallidos
+    # 2️⃣ Intentos fallidos (solo email)
     check_attempts(user)
 
     # 3️⃣ Validar 2FA
-    valid = False
     if data.method == "email":
         valid = verify_email_code(user, data.twofa_code)
     elif data.method == "totp":
         valid = verify_totp_code(user, data.twofa_code)
+    else:
+        raise HTTPException(400, "Método inválido")
 
     if not valid:
         register_failed_attempt(user, db)
-        raise HTTPException(400, "Código de verificación inválido")
+        raise HTTPException(400, "Código 2FA incorrecto")
 
     reset_attempts(user, db)
 
-    # 4️⃣ Guardar nueva contraseña
+    # 4️⃣ Cambiar contraseña
     user.password_hash = hash_password(data.new_password)
     db.commit()
 
     return {"message": "Contraseña actualizada correctamente"}
 
+
 # ===========================================================
-# 🔍 VALIDAR CÓDIGO 2FA (SIN LOGIN)
+# 🔍 VALIDACIÓN REALTIME (Para frontend)
 # ===========================================================
 @router.post("/check-2fa")
 def check_2fa(payload: dict, db: Session = Depends(get_db)):
@@ -219,11 +248,10 @@ def check_2fa(payload: dict, db: Session = Depends(get_db)):
         raise HTTPException(400, "Datos incompletos")
 
     user = db.query(User).filter(User.id == user_id).first()
-
     if not user:
         raise HTTPException(404, "Usuario no encontrado")
 
-    # Validación real
+    # Validación simple sin activar login
     if method == "email":
         valid = verify_email_code(user, code)
     elif method == "totp":
@@ -232,3 +260,4 @@ def check_2fa(payload: dict, db: Session = Depends(get_db)):
         raise HTTPException(400, "Método inválido")
 
     return {"valid": valid}
+

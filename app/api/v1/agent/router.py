@@ -21,7 +21,6 @@ def get_agents(
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user)
 ):
-
     user_hosts = db.query(Host).filter(Host.user_id == current_user.id).all()
     agent_ids = {h.agent_id for h in user_hosts if h.agent_id}
 
@@ -49,7 +48,6 @@ def register(
     data: AgentRegister,
     db: Session = Depends(get_db)
 ):
-
     if not data.agent_id or data.agent_id.strip() == "":
         raise HTTPException(400, "agent_id cannot be empty")
 
@@ -84,8 +82,6 @@ async def report_debug(
     data: ReportIn,
     db: Session = Depends(get_db)
 ):
-
-    # ✔ Usar la IP REAL que envía el agente
     real_ip = data.ip_address.strip()
 
     if not real_ip:
@@ -148,15 +144,27 @@ async def report_debug(
                 continue
 
             entry = {"port": port_val}
-            for k in ("pid", "process_name", "user", "protocol", "status", "service_name", "service_version"):
+            for k in (
+                "pid",
+                "process_name",
+                "user",
+                "protocol",
+                "status",
+                "service_name",
+                "service_version",
+            ):
                 v = pi.get(k)
                 if v is not None:
                     entry[k] = v
+
             normalized_ports.append(entry)
 
-    # Guardar reporte
+    # --------------------------------------------------------
+    # 🔥 AQUÍ FALTABA GUARDAR ip_address EN AgentReport
+    # --------------------------------------------------------
     report = AgentReport(
         agent_id=data.agent_id,
+        ip_address=real_ip,          # <<--- ESTE CAMPO ES EL NUEVO
         ports=normalized_ports
     )
 
@@ -181,7 +189,6 @@ def get_latest_report(
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user)
 ):
-
     owner = db.query(Host).filter(
         Host.agent_id == agent_id,
         Host.user_id == current_user.id
@@ -213,7 +220,6 @@ def add_close_port_command(
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user)
 ):
-
     owner = db.query(Host).filter(
         Host.agent_id == agent_id,
         Host.user_id == current_user.id
@@ -246,7 +252,6 @@ def get_command(
     db: Session = Depends(get_db),
     agent=Depends(validate_agent_id)
 ):
-
     cmd = (
         db.query(CommandQueue)
         .filter(CommandQueue.agent_id == agent_id, CommandQueue.executed == False)
@@ -272,7 +277,6 @@ def confirm(
     db: Session = Depends(get_db),
     agent=Depends(validate_agent_id)
 ):
-
     cmd = db.query(CommandQueue).filter(CommandQueue.id == data.command_id).first()
 
     if not cmd:
@@ -282,3 +286,4 @@ def confirm(
     db.commit()
 
     return {"status": "confirmed"}
+
