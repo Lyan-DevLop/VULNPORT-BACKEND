@@ -18,7 +18,7 @@ class Host(Base):
     total_ports = Column(Integer, default=0)
     high_risk_count = Column(Integer, default=0)
 
-    # 🔥 NUEVO: Relación con agente remoto (Python Agent)
+    # Relación con agente remoto
     agent_id = Column(String(255), ForeignKey("agents.id"), nullable=True)
 
     user_id = Column(
@@ -28,10 +28,7 @@ class Host(Base):
         index=True,
     )
 
-    # ============================
     # RELACIONES
-    # ============================
-
     # 1) Puertos asociados al host
     ports = relationship(
         "Port",

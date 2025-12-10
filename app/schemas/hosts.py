@@ -8,9 +8,7 @@ from .risk import RiskOut
 from .vulnerabilities import VulnerabilityMini
 
 
-# ============================================================
-# HOST BASE
-# ============================================================
+# HOST BASE=
 class HostBase(BaseModel):
     ip_address: str = Field(..., max_length=45)
     hostname: Optional[str] = None
@@ -19,17 +17,11 @@ class HostBase(BaseModel):
     # Relación con agente remoto
     agent_id: Optional[str] = None
 
-
-# ============================================================
 # HOST CREATE
-# ============================================================
 class HostCreate(HostBase):
     user_id: int
 
-
-# ============================================================
 # HOST UPDATE
-# ============================================================
 class HostUpdate(BaseModel):
     hostname: Optional[str] = None
     os_detected: Optional[str] = None
@@ -37,10 +29,7 @@ class HostUpdate(BaseModel):
     high_risk_count: Optional[int] = None
     agent_id: Optional[str] = None
 
-
-# ============================================================
 # HOST OUT (básico)
-# ============================================================
 class HostOut(HostBase):
     id: int
     scan_date: datetime
@@ -50,25 +39,18 @@ class HostOut(HostBase):
 
     model_config = {"from_attributes": True}
 
-
-# ============================================================
 # HOST DETALLADO (con puertos, riesgos, vulns y AGENTE)
-# ============================================================
 class HostDetailOut(HostOut):
     ports: List[PortDetailOut] = []
     risk_assessments: List[RiskOut] = []
     vulnerabilities: List[VulnerabilityMini] = []
     agent_id: Optional[str] = None
 
-    # 🔥 NUEVO → Información completa del agente
     agent: Optional[dict] = None
 
     model_config = {"from_attributes": True}
 
-
-# ============================================================
-# HOST SUMMARY (para dashboards)
-# ============================================================
+# HOST SUMMARY
 class HostSummaryOut(BaseModel):
     id: int
     ip_address: str

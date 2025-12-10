@@ -1,27 +1,28 @@
 from datetime import timedelta
+
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.security import OAuth2PasswordRequestForm
 from jose import jwt
-from sqlalchemy.orm import Session
 from pydantic import BaseModel
+from sqlalchemy.orm import Session
 
-from app.core.security import create_access_token, verify_password, hash_password
-from app.core.settings import get_settings
-from app.database import get_db
-from app.models.users import User
 from app.api.deps import get_current_user
-
-# 2FA servicios
-from app.api.v1.twofa.service_2fa import (
-    verify_email_code,
-    verify_totp_code,
-    send_email_2fa_code,
-)
 from app.api.v1.twofa.limiter import (
     check_attempts,
     register_failed_attempt,
     reset_attempts,
 )
+
+# 2FA servicios
+from app.api.v1.twofa.service_2fa import (
+    send_email_2fa_code,
+    verify_email_code,
+    verify_totp_code,
+)
+from app.core.security import create_access_token, hash_password, verify_password
+from app.core.settings import get_settings
+from app.database import get_db
+from app.models.users import User
 
 router = APIRouter(prefix="/auth", tags=["Auth"])
 
@@ -30,9 +31,7 @@ REFRESH_TOKEN_EXPIRE_DAYS = 30
 settings = get_settings()
 
 
-# ===========================================================
-# 🔐 LOGIN (FASE 1)
-# ===========================================================
+# LOGIN (FASE 1)
 @router.post("/login")
 def login(
     form: OAuth2PasswordRequestForm = Depends(),
@@ -74,10 +73,7 @@ def login(
         "user_id": user.id
     }
 
-
-# ===========================================================
-# ✉️ ENVIAR CÓDIGO 2FA DURANTE EL LOGIN (usuario NO logueado)
-# ===========================================================
+# ENVIAR CÓDIGO 2FA DURANTE EL LOGIN (usuario NO logueado)
 @router.post("/login/email/send")
 def send_login_email_code(payload: dict, db: Session = Depends(get_db)):
     user_id = payload.get("user_id")
@@ -92,16 +88,11 @@ def send_login_email_code(payload: dict, db: Session = Depends(get_db)):
     check_attempts(user)
 
     # Generar y enviar código
-    from app.api.v1.twofa.service_2fa import send_email_2fa_code
     send_email_2fa_code(user, db)
 
     return {"message": "Código enviado al correo del usuario."}
 
-
-
-# ===========================================================
-# 🔑 LOGIN 2FA (FASE 2)
-# ===========================================================
+# LOGIN 2FA (FASE 2)
 @router.post("/login/2fa")
 def login_2fa(payload: dict, db: Session = Depends(get_db)):
 
@@ -154,10 +145,7 @@ def login_2fa(payload: dict, db: Session = Depends(get_db)):
         "user_id": user.id
     }
 
-
-# ===========================================================
-# 🔄 REFRESH TOKEN
-# ===========================================================
+# REFRESH TOKEN
 @router.post("/refresh")
 def refresh_token(refresh_token: str, db: Session = Depends(get_db)):
     try:
@@ -189,10 +177,7 @@ def refresh_token(refresh_token: str, db: Session = Depends(get_db)):
         "token_type": "bearer"
     }
 
-
-# ===========================================================
-# 🔒 CAMBIO DE CONTRASEÑA CON 2FA
-# ===========================================================
+# CAMBIO DE CONTRASEÑA CON 2FA
 class PasswordChangeRequest(BaseModel):
     current_password: str
     new_password: str
@@ -206,14 +191,14 @@ def change_password(
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user)
 ):
-    # 1️⃣ Validar contraseña actual
+    # Validar contraseña actual
     if not verify_password(data.current_password, user.password_hash):
         raise HTTPException(400, "La contraseña actual es incorrecta")
 
-    # 2️⃣ Intentos fallidos (solo email)
+    # Validar intentos fallidos (solo email)
     check_attempts(user)
 
-    # 3️⃣ Validar 2FA
+    # Validar 2FA
     if data.method == "email":
         valid = verify_email_code(user, data.twofa_code)
     elif data.method == "totp":
@@ -227,16 +212,13 @@ def change_password(
 
     reset_attempts(user, db)
 
-    # 4️⃣ Cambiar contraseña
+    # Cambiar contraseña
     user.password_hash = hash_password(data.new_password)
     db.commit()
 
     return {"message": "Contraseña actualizada correctamente"}
 
-
-# ===========================================================
-# 🔍 VALIDACIÓN REALTIME (Para frontend)
-# ===========================================================
+# VALIDACIÓN REALTIME 2FA
 @router.post("/check-2fa")
 def check_2fa(payload: dict, db: Session = Depends(get_db)):
 

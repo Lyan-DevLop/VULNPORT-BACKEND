@@ -1,6 +1,7 @@
 from fastapi import FastAPI
 from sqlalchemy import text  # Prueba conexion a la BD
 
+from app.api.v1.agent.router import router as agent_router
 from app.api.v1.auth import router as auth_router
 
 # Routers v1
@@ -11,12 +12,11 @@ from app.api.v1.risk import router as risk_router
 from app.api.v1.risk_status import router as risk_status_router
 from app.api.v1.routes_scan import router as scan_router
 from app.api.v1.summary import router as summary_router
+from app.api.v1.twofa.router import router as twofa_router
 from app.api.v1.users import router as users_router
 from app.api.v1.vulnerabilities import router as vulnerabilities_router
 from app.config import AppConfig, get_api_prefix
 from app.core.logger import get_logger
-from app.api.v1.twofa.router import router as twofa_router
-from app.api.v1.agent.router import router as agent_router
 from app.core.ssl_config import get_uvicorn_ssl_kwargs  # Config SSL para https
 
 log = get_logger(__name__)

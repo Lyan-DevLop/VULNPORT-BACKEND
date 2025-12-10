@@ -1,8 +1,11 @@
-from fastapi import Header, HTTPException, Depends
-from sqlalchemy.orm import Session
-from app.database import get_db
-from .models import Agent
 from datetime import datetime
+
+from fastapi import Depends, Header, HTTPException
+from sqlalchemy.orm import Session
+
+from app.database import get_db
+
+from .models import Agent
 
 
 def validate_agent_id(
@@ -22,7 +25,7 @@ def validate_agent_id(
     if not agent:
         raise HTTPException(401, "Invalid Agent ID")
 
-    # 🔥 Nueva validación obligatoria
+    # Validar API Key si está configurada
     if agent.api_key and x_api_key != agent.api_key:
         raise HTTPException(401, "Invalid API Key")
 

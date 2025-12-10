@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from sqlalchemy import BigInteger, Column, DateTime, String, Boolean, Integer
+from sqlalchemy import BigInteger, Boolean, Column, DateTime, Integer, String
 from sqlalchemy.orm import relationship
 
 from app.database import Base
@@ -16,10 +16,8 @@ class User(Base):
     role = Column(String(20), default="user")  # admin / user
     created_at = Column(DateTime, default=datetime.utcnow)
 
-    # ======================
-    # 🔐 CAMPOS 2FA
-    # ======================
 
+    # CAMPOS 2FA
     is_2fa_enabled = Column(Boolean, default=False)       # ¿2FA activo?
     totp_secret = Column(String(255), nullable=True)      # Authy / Google Authenticator
 
@@ -31,7 +29,7 @@ class User(Base):
     two_fa_attempts = Column(Integer, default=0)
     two_fa_locked_until = Column(DateTime, nullable=True)
 
-    # Relación inversa (no tocar)
+    # Relación inversa
     hosts = relationship(
         "Host",
         back_populates="user",

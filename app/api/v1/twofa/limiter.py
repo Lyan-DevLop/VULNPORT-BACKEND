@@ -1,8 +1,9 @@
 from datetime import datetime, timedelta
+
 from fastapi import HTTPException
 
-MAX_ATTEMPTS = 5
-LOCK_TIME_MINUTES = 5
+MAX_ATTEMPTS = 5 # Máximo de intentos antes de bloqueo
+LOCK_TIME_MINUTES = 5 # Tiempo de bloqueo en minutos
 
 
 def check_attempts(user):

@@ -2,9 +2,7 @@ import smtplib
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 
-# ============================
-# CONFIG SMTP (AJUSTA ESTO)
-# ============================
+# CONFIG SMTP 
 SMTP_USER = "julianavilacaicedo2003@gmail.com"      # remitente (puede ser tu dominio)
 SMTP_PASS = "zcrw zqdb xchf ohzi"        # contraseña de app / token SMTP
 SMTP_SERVER = "smtp.gmail.com"          # servidor SMTP real
@@ -12,10 +10,6 @@ SMTP_PORT = 587                         # puerto TLS típico
 
 
 def build_html_body(code: str, username: str | None, email_to: str) -> str:
-    """
-    Plantilla HTML corporativa para el correo 2FA.
-    Colores tomados del frontend (fondo oscuro + cian).
-    """
     display_name = username or email_to
 
     return f"""

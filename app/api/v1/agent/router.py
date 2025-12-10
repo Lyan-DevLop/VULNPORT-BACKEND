@@ -1,21 +1,20 @@
+import secrets
+from datetime import datetime, timedelta
+
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
-from datetime import datetime, timedelta
-import secrets
 
+from app.api.deps import get_current_user
 from app.database import get_db
 from app.models.hosts import Host
-from app.api.deps import get_current_user
+
 from .models import Agent, AgentReport, CommandQueue
-from .schemas import AgentRegister, ReportIn, ConfirmCommand
+from .schemas import AgentRegister, ConfirmCommand, ReportIn
 from .security import validate_agent_id
 
 router = APIRouter(prefix="/agent", tags=["Agent"])
 
-
-# ============================================================
 # LISTAR AGENTES DEL USUARIO AUTENTICADO
-# ============================================================
 @router.get("/list")
 def get_agents(
     db: Session = Depends(get_db),
@@ -39,10 +38,7 @@ def get_agents(
         for agent in agents
     ]
 
-
-# ============================================================
 # REGISTRAR AGENTE
-# ============================================================
 @router.post("/register")
 def register(
     data: AgentRegister,
@@ -73,10 +69,7 @@ def register(
 
     return {"status": "registered", "api_key": api_key}
 
-
-# ============================================================
 # RECIBIR REPORTE DEL AGENTE (USA IP REAL DEL AGENTE)
-# ============================================================
 @router.post("/report")
 async def report_debug(
     data: ReportIn,
@@ -159,12 +152,10 @@ async def report_debug(
 
             normalized_ports.append(entry)
 
-    # --------------------------------------------------------
-    # 🔥 AQUÍ FALTABA GUARDAR ip_address EN AgentReport
-    # --------------------------------------------------------
+    # AQUI GUARDAMOS EL REPORTE DEL AGENTE
     report = AgentReport(
         agent_id=data.agent_id,
-        ip_address=real_ip,          # <<--- ESTE CAMPO ES EL NUEVO
+        ip_address=real_ip,
         ports=normalized_ports
     )
 
@@ -179,10 +170,7 @@ async def report_debug(
         "host_id": host.id
     }
 
-
-# ============================================================
 # OBTENER ÚLTIMO REPORTE
-# ============================================================
 @router.get("/reports/{agent_id}")
 def get_latest_report(
     agent_id: str,
@@ -210,9 +198,7 @@ def get_latest_report(
     return {"agent_id": agent_id, "ports": rep.ports}
 
 
-# ============================================================
 # AGREGAR COMANDO PARA CERRAR PUERTO
-# ============================================================
 @router.post("/command/close-port")
 def add_close_port_command(
     agent_id: str,
@@ -242,10 +228,7 @@ def add_close_port_command(
         "message": f"El puerto {port} fue enviado al agente {agent_id}."
     }
 
-
-# ============================================================
 # CONSULTAR COMANDOS PENDIENTES
-# ============================================================
 @router.get("/command/{agent_id}")
 def get_command(
     agent_id: str,
@@ -254,7 +237,7 @@ def get_command(
 ):
     cmd = (
         db.query(CommandQueue)
-        .filter(CommandQueue.agent_id == agent_id, CommandQueue.executed == False)
+        .filter(CommandQueue.agent_id == agent_id, CommandQueue.executed.is_(False))
         .first()
     )
 
@@ -267,10 +250,7 @@ def get_command(
         "port": cmd.port,
     }
 
-
-# ============================================================
 # CONFIRMAR COMANDO
-# ============================================================
 @router.post("/confirm")
 def confirm(
     data: ConfirmCommand,

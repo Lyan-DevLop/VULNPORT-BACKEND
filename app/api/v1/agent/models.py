@@ -1,12 +1,10 @@
-from sqlalchemy import Column, Integer, String, Boolean, DateTime, JSON, ForeignKey
-from sqlalchemy.sql import func
+from sqlalchemy import JSON, Boolean, Column, DateTime, ForeignKey, Integer, String
 from sqlalchemy.orm import relationship
+from sqlalchemy.sql import func
+
 from app.database import Base
 
-
-# ============================================================
-# 📌 AGENT (equipo remoto que envía reportes)
-# ============================================================
+# AGENT (equipo remoto que envía reportes)
 class Agent(Base):
     __tablename__ = "agents"
 
@@ -36,10 +34,7 @@ class Agent(Base):
         passive_deletes=True
     )
 
-
-# ============================================================
-# 📌 AGENT REPORT (datos enviados por el agente)
-# ============================================================
+# AGENT REPORT (datos enviados por el agente)
 class AgentReport(Base):
     __tablename__ = "agent_reports"
 
@@ -48,7 +43,7 @@ class AgentReport(Base):
     # Agente asociado
     agent_id = Column(String, ForeignKey("agents.id", ondelete="CASCADE"), nullable=False)
 
-    # 🔥 NUEVO
+    # NUEVO
     # IP del equipo desde donde el agente envió el reporte
     ip_address = Column(String(45), nullable=True)
 
@@ -63,10 +58,7 @@ class AgentReport(Base):
 
     agent = relationship("Agent", back_populates="reports")
 
-
-# ============================================================
-# 📌 COMMAND QUEUE (comandos enviados al agente)
-# ============================================================
+# COMMAND QUEUE (comandos enviados al agente)
 class CommandQueue(Base):
     __tablename__ = "command_queue"
 

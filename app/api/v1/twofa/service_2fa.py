@@ -1,13 +1,13 @@
 import random
 from datetime import datetime, timedelta
+
 import pyotp
 
 from .email_service import send_email_code
 
 
-# ============================================================
-# 🔹 GENERAR CÓDIGO 2FA POR EMAIL
-# ============================================================
+
+# GENERAR CÓDIGO 2FA POR EMAIL
 def generate_email_2fa_code() -> str:
     """
     Genera un código de 6 dígitos SIN perder ceros a la izquierda.
@@ -31,10 +31,7 @@ def send_email_2fa_code(user, db):
 
     return True
 
-
-# ============================================================
-# 🔹 VALIDACIÓN CÓDIGO EMAIL
-# ============================================================
+# VALIDACIÓN CÓDIGO EMAIL
 def verify_email_code(user, code: str) -> bool:
     """
     Valida código enviado por correo.
@@ -47,13 +44,10 @@ def verify_email_code(user, code: str) -> bool:
 
     try:
         return user.email_2fa_code.strip() == str(code).strip()
-    except:
+    except Exception:
         return False
 
-
-# ============================================================
-# 🔹 VALIDACIÓN CÓDIGO TOTP (AUTHY / GOOGLE AUTHENTICATOR)
-# ============================================================
+# VALIDACIÓN CÓDIGO TOTP (AUTHY / GOOGLE AUTHENTICATOR)
 def verify_totp_code(user, code: str) -> bool:
     """
     Verifica códigos TOTP con tolerancia de ventana.

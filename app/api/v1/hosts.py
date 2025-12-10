@@ -1,22 +1,20 @@
+from datetime import datetime, timedelta
+from typing import Optional
+
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session, selectinload
-from typing import Optional
-from datetime import datetime, timedelta
 
 from app.api.deps import get_current_user
+from app.api.v1.agent.models import Agent, CommandQueue
 from app.database import get_db
 from app.models.hosts import Host
-from app.models.users import User
 from app.models.ports import Port
-from app.schemas.hosts import HostCreate, HostOut, HostUpdate, HostDetailOut
-from app.api.v1.agent.models import Agent, CommandQueue
+from app.models.users import User
+from app.schemas.hosts import HostCreate, HostDetailOut, HostOut
 
 router = APIRouter(prefix="/hosts", tags=["Hosts"])
 
-
-# ============================================================
 # CREAR HOST
-# ============================================================
 @router.post("/", response_model=HostOut)
 def create_host(data: HostCreate, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
 
@@ -40,10 +38,7 @@ def create_host(data: HostCreate, db: Session = Depends(get_db), user: User = De
     db.refresh(host)
     return host
 
-
-# ============================================================
 # LISTAR MIS HOSTS DETALLADO (CON AGENTE)
-# ============================================================
 @router.get("/me", response_model=list[HostDetailOut])
 def list_my_hosts(db: Session = Depends(get_db), user: User = Depends(get_current_user)):
 
@@ -79,10 +74,7 @@ def list_my_hosts(db: Session = Depends(get_db), user: User = Depends(get_curren
 
     return enriched
 
-
-# ============================================================
 # HOST DETALLADO
-# ============================================================
 @router.get("/{host_id}", response_model=HostDetailOut)
 def get_host(host_id: int, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
 
@@ -120,10 +112,7 @@ def get_host(host_id: int, db: Session = Depends(get_db), user: User = Depends(g
 
     return {**host.__dict__, "agent": agent_info}
 
-
-# ============================================================
 # ASIGNAR MANUALMENTE AGENTE
-# ============================================================
 @router.put("/{host_id}/assign-agent")
 def assign_agent(host_id: int, agent_id: Optional[str] = None, db: Session = Depends(get_db)):
 
@@ -141,10 +130,7 @@ def assign_agent(host_id: int, agent_id: Optional[str] = None, db: Session = Dep
         "agent_id": agent_id,
     }
 
-
-# ============================================================
 # NUEVO — CERRAR PUERTO DESDE EL HOST
-# ============================================================
 @router.post("/{host_id}/close-port")
 def host_close_port(host_id: int, port: int, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
 

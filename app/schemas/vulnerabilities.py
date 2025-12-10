@@ -4,9 +4,7 @@ from typing import Optional
 from pydantic import BaseModel, Field
 
 
-# ===========================
-# HOST LIGERO (si lo necesitas)
-# ===========================
+# HOST LIGERO o BASICO
 class HostLite(BaseModel):
     id: int
     ip_address: str
@@ -14,10 +12,7 @@ class HostLite(BaseModel):
 
     model_config = {"from_attributes": True}
 
-
-# ===========================
 # PORT LIGERO PARA VULNS
-# ===========================
 class PortLite(BaseModel):
     id: int
     port_number: int
@@ -27,10 +22,7 @@ class PortLite(BaseModel):
 
     model_config = {"from_attributes": True}
 
-
-# ===========================
 # VULNERABILITY BASE
-# ===========================
 class VulnerabilityBase(BaseModel):
     cve_id: Optional[str] = Field(None, max_length=20)
     cvss_score: Optional[float] = Field(None, ge=0, le=10)
@@ -60,10 +52,7 @@ class VulnerabilityOut(VulnerabilityBase):
 
     model_config = {"from_attributes": True}
 
-
-# ============================================================
 # VERSIÓN MINI (para hosts / resúmenes / riesgos)
-# ============================================================
 class VulnerabilityMini(BaseModel):
     id: int
     cve_id: Optional[str] = None

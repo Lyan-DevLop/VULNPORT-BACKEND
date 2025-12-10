@@ -22,10 +22,7 @@ class Port(Base):
     status = Column(String(20), nullable=False)  # open / closed / filtered
     scanned_at = Column(DateTime, default=datetime.utcnow)
 
-    # ============================
     # RELACIONES
-    # ============================
-
     # Host dueño del puerto
     host = relationship(
         "Host",

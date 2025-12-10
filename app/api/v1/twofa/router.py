@@ -1,28 +1,26 @@
-from typing import Optional
 from io import BytesIO
+from typing import Optional
 
+import pyotp
+import qrcode
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
-import qrcode
-import pyotp
 
-from app.database import get_db
 from app.api.deps import get_current_user
+from app.database import get_db
+from app.models.users import User
+
+from .limiter import check_attempts, register_failed_attempt, reset_attempts
 from .service_2fa import (
     send_email_2fa_code,
     verify_email_code,
     verify_totp_code,
 )
-from .limiter import check_attempts, register_failed_attempt, reset_attempts
-from app.models.users import User
 
 router = APIRouter(prefix="/twofa", tags=["2FA"])
 
-
-# ======================================================
-# 🔍 ESTADO ACTUAL DE 2FA
-# ======================================================
+# ESTADO ACTUAL DE 2FA
 @router.get("/status")
 def twofa_status(current_user: User = Depends(get_current_user)):
     return {
@@ -31,10 +29,7 @@ def twofa_status(current_user: User = Depends(get_current_user)):
         "email": current_user.email,
     }
 
-
-# ======================================================
-# 🔐 GENERAR SECRETO TOTP (para app Authenticator)
-# ======================================================
+# GENERAR SECRETO TOTP (para app Authenticator)
 @router.post("/generate-secret")
 def generate_secret(
     current_user: User = Depends(get_current_user),
@@ -52,10 +47,7 @@ def generate_secret(
 
     return {"secret": secret}
 
-
-# ======================================================
-# 🔳 GENERAR QR PARA AUTHENTICATOR
-# ======================================================
+# GENERAR QR PARA AUTHENTICATOR
 @router.get("/qr")
 def get_qr(
     request: Request,
@@ -70,8 +62,8 @@ def get_qr(
 
     # Obtener usuario desde token manualmente
     try:
-        current_user = get_user_from_token(token, db)
-    except:
+        current_user = get_current_user(token, db)
+    except Exception:
         raise HTTPException(401, "Token inválido.")
 
     # Usar el secreto apropiado
@@ -93,11 +85,7 @@ def get_qr(
 
     return StreamingResponse(buf, media_type="image/png")
 
-
-
-# ======================================================
-# ✉️ ENVIAR CÓDIGO POR EMAIL (SETUP)
-# ======================================================
+# ENVIAR CÓDIGO POR EMAIL (SETUP)
 @router.post("/email/send")
 def twofa_email_send(
     current_user: User = Depends(get_current_user),
@@ -108,10 +96,7 @@ def twofa_email_send(
         raise HTTPException(500, "No se pudo enviar el correo 2FA.")
     return {"message": "Código enviado al correo."}
 
-
-# ======================================================
-# 📝 ACTIVAR 2FA
-# ======================================================
+# ACTIVAR 2FA
 @router.post("/verify")
 def verify_twofa(
     payload: dict,
@@ -145,9 +130,7 @@ def verify_twofa(
     return {"message": "2FA activado correctamente."}
 
 
-# ======================================================
-# ❌ DESACTIVAR 2FA
-# ======================================================
+# DESACTIVAR 2FA
 @router.post("/disable")
 def disable_twofa(
     payload: dict,
