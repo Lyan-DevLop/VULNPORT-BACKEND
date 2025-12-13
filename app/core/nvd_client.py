@@ -1,15 +1,15 @@
-import httpx
 from typing import Optional
 
-from app.core.settings import get_settings
+import httpx
+
 from app.core.logger import get_logger
+from app.core.settings import get_settings
 
 settings = get_settings()
 log = get_logger(__name__)
 
 
 class NVDClient:
-
     def __init__(self):
         self.base_url = settings.NVD_BASE_URL
         self.api_key = settings.NVD_API_KEY
@@ -28,11 +28,7 @@ class NVDClient:
 
         try:
             async with httpx.AsyncClient(timeout=20) as client:
-                response = await client.get(
-                    self.base_url,
-                    params=params,
-                    headers=headers
-                )
+                response = await client.get(self.base_url, params=params, headers=headers)
                 response.raise_for_status()
                 return response.json()
 

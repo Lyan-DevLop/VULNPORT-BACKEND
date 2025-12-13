@@ -1,7 +1,7 @@
 from openpyxl import Workbook
-from openpyxl.styles import Font, PatternFill, Alignment
-from openpyxl.worksheet.page import PageMargins
 from openpyxl.chart import PieChart, Reference
+from openpyxl.styles import Alignment, Font, PatternFill
+from openpyxl.worksheet.page import PageMargins
 
 
 class ExcelReportGenerator:
@@ -64,7 +64,6 @@ class ExcelReportGenerator:
 
         return severities
 
-
     # Pintar severidades por color
     def _apply_severity_colors(self, ws, severity_col: int, start_row: int = 2):
         """
@@ -112,14 +111,16 @@ class ExcelReportGenerator:
         ws_ports.append(["Puerto", "Protocolo", "Estado", "Servicio", "Versión", "Fecha"])
 
         for p in ports:
-            ws_ports.append([
-                p.port_number,
-                p.protocol.upper(),
-                p.status,
-                p.service_name or "N/A",
-                p.service_version or "N/A",
-                p.scanned_at.strftime("%Y-%m-%d %H:%M"),
-            ])
+            ws_ports.append(
+                [
+                    p.port_number,
+                    p.protocol.upper(),
+                    p.status,
+                    p.service_name or "N/A",
+                    p.service_version or "N/A",
+                    p.scanned_at.strftime("%Y-%m-%d %H:%M"),
+                ]
+            )
 
         self._style_header(ws_ports, self.COLORS["header_gray"])
         self._auto_fit_columns(ws_ports)
@@ -134,13 +135,15 @@ class ExcelReportGenerator:
 
         for p in ports:
             for v in p.vulnerabilities:
-                ws_vuln.append([
-                    v.cve_id,
-                    v.cvss_score,
-                    v.severity,
-                    (v.description[:150] + "...") if v.description else "N/A",
-                    v.published_date.strftime("%Y-%m-%d") if v.published_date else "N/A",
-                ])
+                ws_vuln.append(
+                    [
+                        v.cve_id,
+                        v.cvss_score,
+                        v.severity,
+                        (v.description[:150] + "...") if v.description else "N/A",
+                        v.published_date.strftime("%Y-%m-%d") if v.published_date else "N/A",
+                    ]
+                )
 
         self._style_header(ws_vuln, self.COLORS["header_red"])
         self._auto_fit_columns(ws_vuln)
@@ -192,7 +195,7 @@ class ExcelReportGenerator:
 
         wb.save(output_path)
         return output_path
-    
+
     #   MODO MULTI HOST (reporte global)
     def generate_network_excel(self, hosts, output_path: str) -> str:
         """
@@ -208,24 +211,26 @@ class ExcelReportGenerator:
         ws.page_margins = PageMargins(left=0.25, right=0.25, top=0.25, bottom=0.25)
 
         # Encabezados
-        ws.append([
-            "Host IP",
-            "Hostname",
-            "OS",
-            "Fecha Escaneo",
-            "Puerto",
-            "Protocolo",
-            "Estado",
-            "Servicio",
-            "Versión",
-            "CVE",
-            "CVSS",
-            "Severidad",
-            "Descripción",
-            "Publicación",
-            "Nivel Riesgo",
-            "Score Riesgo",
-        ])
+        ws.append(
+            [
+                "Host IP",
+                "Hostname",
+                "OS",
+                "Fecha Escaneo",
+                "Puerto",
+                "Protocolo",
+                "Estado",
+                "Servicio",
+                "Versión",
+                "CVE",
+                "CVSS",
+                "Severidad",
+                "Descripción",
+                "Publicación",
+                "Nivel Riesgo",
+                "Score Riesgo",
+            ]
+        )
         self._style_header(ws, self.COLORS["header_blue"])
 
         # Ordenar hosts por IP ascendente
@@ -242,33 +247,17 @@ class ExcelReportGenerator:
 
             if not ports:
                 # host sin puertos registrados
-                ws.append([
-                    host.ip_address,
-                    host.hostname or "N/A",
-                    host.os_detected or "N/A",
-                    host.scan_date.strftime("%Y-%m-%d %H:%M") if host.scan_date else "N/A",
-                    None, None, None, None, None,
-                    None, None, None, None, None,
-                    risk_level,
-                    risk_score,
-                ])
-                continue
-
-            for p in ports:
-                vulns = getattr(p, "vulnerabilities", []) or []
-
-                # Si no hay vulnerabilidades, una fila por puerto
-                if not vulns:
-                    ws.append([
+                ws.append(
+                    [
                         host.ip_address,
                         host.hostname or "N/A",
                         host.os_detected or "N/A",
                         host.scan_date.strftime("%Y-%m-%d %H:%M") if host.scan_date else "N/A",
-                        p.port_number,
-                        p.protocol.upper(),
-                        p.status,
-                        p.service_name or "N/A",
-                        p.service_version or "N/A",
+                        None,
+                        None,
+                        None,
+                        None,
+                        None,
                         None,
                         None,
                         None,
@@ -276,11 +265,17 @@ class ExcelReportGenerator:
                         None,
                         risk_level,
                         risk_score,
-                    ])
-                else:
-                    # Una fila por vulnerabilidad
-                    for v in vulns:
-                        ws.append([
+                    ]
+                )
+                continue
+
+            for p in ports:
+                vulns = getattr(p, "vulnerabilities", []) or []
+
+                # Si no hay vulnerabilidades, una fila por puerto
+                if not vulns:
+                    ws.append(
+                        [
                             host.ip_address,
                             host.hostname or "N/A",
                             host.os_detected or "N/A",
@@ -290,14 +285,38 @@ class ExcelReportGenerator:
                             p.status,
                             p.service_name or "N/A",
                             p.service_version or "N/A",
-                            v.cve_id,
-                            v.cvss_score,
-                            v.severity,
-                            (v.description[:150] + "...") if v.description else "N/A",
-                            v.published_date.strftime("%Y-%m-%d") if v.published_date else "N/A",
+                            None,
+                            None,
+                            None,
+                            None,
+                            None,
                             risk_level,
                             risk_score,
-                        ])
+                        ]
+                    )
+                else:
+                    # Una fila por vulnerabilidad
+                    for v in vulns:
+                        ws.append(
+                            [
+                                host.ip_address,
+                                host.hostname or "N/A",
+                                host.os_detected or "N/A",
+                                host.scan_date.strftime("%Y-%m-%d %H:%M") if host.scan_date else "N/A",
+                                p.port_number,
+                                p.protocol.upper(),
+                                p.status,
+                                p.service_name or "N/A",
+                                p.service_version or "N/A",
+                                v.cve_id,
+                                v.cvss_score,
+                                v.severity,
+                                (v.description[:150] + "...") if v.description else "N/A",
+                                v.published_date.strftime("%Y-%m-%d") if v.published_date else "N/A",
+                                risk_level,
+                                risk_score,
+                            ]
+                        )
 
         # Ajustes finales
         self._auto_fit_columns(ws)
@@ -308,4 +327,3 @@ class ExcelReportGenerator:
 
         wb.save(output_path)
         return output_path
-
