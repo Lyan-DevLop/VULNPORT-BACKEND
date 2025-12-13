@@ -17,5 +17,12 @@ class Vulnerability(Base):
     published_date = Column(Date, nullable=True)
     source = Column(String(100), default="NVD")
 
-    # RELACIÓN
-    port = relationship("Port", back_populates="vulnerabilities")
+
+    #   RELACIONES
+    # Puerto al que pertenece la vulnerabilidad
+    port = relationship(
+        "Port",
+        back_populates="vulnerabilities",
+        lazy="joined"
+    )
+

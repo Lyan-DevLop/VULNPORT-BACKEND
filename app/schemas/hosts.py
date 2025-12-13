@@ -3,36 +3,33 @@ from typing import List, Optional
 
 from pydantic import BaseModel, Field
 
-from .ports import PortOut
+from .ports import PortOut as PortDetailOut
 from .risk import RiskOut
+from .vulnerabilities import VulnerabilityMini
 
 
-# Base
+# HOST BASE=
 class HostBase(BaseModel):
     ip_address: str = Field(..., max_length=45)
     hostname: Optional[str] = None
     os_detected: Optional[str] = None
 
+    # Relación con agente remoto
+    agent_id: Optional[str] = None
 
-# Crear Host
+# HOST CREATE
 class HostCreate(HostBase):
-    """
-    Para creación:
-    - user_id es necesario para relacionar el escaneo al usuario logueado
-    """
-
     user_id: int
 
-
-# Actualizar Host
+# HOST UPDATE
 class HostUpdate(BaseModel):
     hostname: Optional[str] = None
     os_detected: Optional[str] = None
     total_ports: Optional[int] = None
     high_risk_count: Optional[int] = None
+    agent_id: Optional[str] = None
 
-
-# Respuesta (BD)
+# HOST OUT (básico)
 class HostOut(HostBase):
     id: int
     scan_date: datetime
@@ -42,10 +39,25 @@ class HostOut(HostBase):
 
     model_config = {"from_attributes": True}
 
-
-# Respuesta completa
+# HOST DETALLADO (con puertos, riesgos, vulns y AGENTE)
 class HostDetailOut(HostOut):
-    ports: List[PortOut] = []
+    ports: List[PortDetailOut] = []
     risk_assessments: List[RiskOut] = []
+    vulnerabilities: List[VulnerabilityMini] = []
+    agent_id: Optional[str] = None
+
+    agent: Optional[dict] = None
+
+    model_config = {"from_attributes": True}
+
+# HOST SUMMARY
+class HostSummaryOut(BaseModel):
+    id: int
+    ip_address: str
+    total_ports: int
+    total_vulns: int
+    risk_level: Optional[str] = "N/A"
+    risk_score: Optional[float] = 0.0
+    scan_date: datetime
 
     model_config = {"from_attributes": True}
