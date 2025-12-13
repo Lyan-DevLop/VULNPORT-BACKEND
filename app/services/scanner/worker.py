@@ -289,7 +289,5 @@ class ScanWorker:
             fake_ports.append(FakePort)
 
         return fake_ports
-
-
+    
 scan_worker = ScanWorker()
-
