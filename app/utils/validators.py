@@ -1,7 +1,7 @@
 from app.utils.ip_tools import is_valid_ip
 from app.utils.ports import normalize_protocol, validate_port
 
-
+# VALIDADORES
 def validate_ip_or_raise(ip: str):
     """
     Valida una IP y muestra error si no es válida.

@@ -29,7 +29,7 @@ class PortScanner:
 
     # Cancelar el scaneo
     def cancel(self):
-        log.warning("⛔ Escaneo cancelado por el usuario")
+        log.warning("Escaneo cancelado por el usuario")
         self.cancel_flag = True
 
     def reset_cancel(self):

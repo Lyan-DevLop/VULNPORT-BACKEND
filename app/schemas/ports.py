@@ -6,7 +6,6 @@ from pydantic import BaseModel, Field
 from .vulnerabilities import VulnerabilityOut
 
 
-# Base
 class PortBase(BaseModel):
     port_number: int = Field(..., ge=1, le=65535)
     protocol: str = Field(..., pattern="^(tcp|udp)$")
@@ -15,12 +14,10 @@ class PortBase(BaseModel):
     status: str = Field(..., pattern="^(open|closed|filtered|Unknown)$")
 
 
-# Crear Puerto
 class PortCreate(PortBase):
     host_id: int
 
 
-# Actualizar puerto
 class PortUpdate(BaseModel):
     port_number: Optional[int] = Field(None, ge=1, le=65535)
     protocol: Optional[str] = Field(None, pattern="^(tcp|udp)$")
@@ -29,7 +26,6 @@ class PortUpdate(BaseModel):
     status: Optional[str] = Field(None, pattern="^(open|closed|filtered)$")
 
 
-# Respuesta
 class PortOut(PortBase):
     id: int
     host_id: int
