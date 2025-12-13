@@ -3,8 +3,8 @@ from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 
 # CONFIG SMTP 
-SMTP_USER = "julianavilacaicedo2003@gmail.com"      # remitente (puede ser tu dominio)
-SMTP_PASS = "zcrw zqdb xchf ohzi"        # contraseña de app / token SMTP
+SMTP_USER = "vulnports.noreply@gmail.com"      # remitente 
+SMTP_PASS = "bips zxlw icxo wlsm"        # contraseña de app / token SMTP
 SMTP_SERVER = "smtp.gmail.com"          # servidor SMTP real
 SMTP_PORT = 587                         # puerto TLS típico
 
