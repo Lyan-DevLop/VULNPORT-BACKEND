@@ -1,15 +1,12 @@
+import os
 from datetime import datetime
 from typing import List
-import os
 
-from reportlab.lib.pagesizes import letter, landscape
 from reportlab.lib import colors
-from reportlab.platypus import (
-    SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle,
-    PageBreak, KeepTogether
-)
+from reportlab.lib.pagesizes import landscape, letter
 from reportlab.lib.styles import getSampleStyleSheet
 from reportlab.pdfgen.canvas import Canvas
+from reportlab.platypus import PageBreak, Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
 
 
 class ReportGenerator:
@@ -23,7 +20,7 @@ class ReportGenerator:
     - Renders limpios y legibles
     """
 
-    LOGO_PATH = "app/static/logo.png" #Ajustar logo o icono del sistema
+    LOGO_PATH = "app/static/logo.png"  # Ajustar logo o icono del sistema
 
     def __init__(self):
         self.styles = getSampleStyleSheet()
@@ -40,10 +37,7 @@ class ReportGenerator:
         canvas.rect(0, 0, doc.pagesize[0], doc.pagesize[1], fill=1)
 
         if os.path.exists(self.LOGO_PATH):
-            canvas.drawImage(
-                self.LOGO_PATH, 190, 500, width=240, height=100,
-                preserveAspectRatio=True, mask='auto'
-            )
+            canvas.drawImage(self.LOGO_PATH, 190, 500, width=240, height=100, preserveAspectRatio=True, mask="auto")
         else:
             canvas.setFillColor(colors.lightgrey)
             canvas.rect(200, 500, 200, 80, fill=1)
@@ -55,10 +49,7 @@ class ReportGenerator:
         canvas.drawString(120, 420, "Reporte de Seguridad - Host Individual")
 
         canvas.setFont("Helvetica", 14)
-        canvas.drawString(
-            150, 390,
-            f"Generado: {datetime.now().strftime('%Y-%m-%d %H:%M')}"
-        )
+        canvas.drawString(150, 390, f"Generado: {datetime.now().strftime('%Y-%m-%d %H:%M')}")
 
         canvas.restoreState()
 
@@ -80,25 +71,24 @@ class ReportGenerator:
     # ESTILO TABLAS
     def _styled_table(self, data, color):
         tbl = Table(data, repeatRows=1)
-        tbl.setStyle(TableStyle([
-            ("BACKGROUND", (0, 0), (-1, 0), color),
-            ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
-            ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
-            ("GRID", (0, 0), (-1, -1), 0.25, colors.grey),
-            ("ALIGN", (0, 0), (-1, -1), "LEFT"),
-            ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.whitesmoke, colors.lightgrey]),
-            ("FONTSIZE", (0, 0), (-1, -1), 9),
-        ]))
+        tbl.setStyle(
+            TableStyle(
+                [
+                    ("BACKGROUND", (0, 0), (-1, 0), color),
+                    ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+                    ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+                    ("GRID", (0, 0), (-1, -1), 0.25, colors.grey),
+                    ("ALIGN", (0, 0), (-1, -1), "LEFT"),
+                    ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.whitesmoke, colors.lightgrey]),
+                    ("FONTSIZE", (0, 0), (-1, -1), 9),
+                ]
+            )
+        )
         return tbl
 
     # REPORTE SINGLE-HOST (PDF en modo Landscape)
     def generate_host_report(self, host, ports, risk_assessments, output_path: str) -> str:
-
-        doc = SimpleDocTemplate(
-            output_path,
-            pagesize=landscape(letter),
-            title="Reporte Host VULNPORTS"
-        )
+        doc = SimpleDocTemplate(output_path, pagesize=landscape(letter), title="Reporte Host VULNPORTS")
 
         # Portada
         doc.build([Spacer(1, 1)], onFirstPage=self._cover_page)
@@ -128,11 +118,16 @@ class ReportGenerator:
 
         ports_rows = [["Puerto", "Protocolo", "Estado", "Servicio", "Versión", "Fecha"]]
         for p in ports:
-            ports_rows.append([
-                p.port_number, p.protocol.upper(), p.status,
-                p.service_name, p.service_version,
-                p.scanned_at.strftime("%Y-%m-%d %H:%M")
-            ])
+            ports_rows.append(
+                [
+                    p.port_number,
+                    p.protocol.upper(),
+                    p.status,
+                    p.service_name,
+                    p.service_version,
+                    p.scanned_at.strftime("%Y-%m-%d %H:%M"),
+                ]
+            )
 
         elements.append(self._styled_table(ports_rows, colors.grey))
         elements.append(Spacer(1, 25))
@@ -145,13 +140,15 @@ class ReportGenerator:
 
         for p in ports:
             for v in p.vulnerabilities:
-                vuln_rows.append([
-                    v.cve_id,
-                    v.cvss_score,
-                    v.severity,
-                    (v.description[:150] + "...") if v.description else "N/A",
-                    v.published_date.strftime("%Y-%m-%d") if v.published_date else "N/A"
-                ])
+                vuln_rows.append(
+                    [
+                        v.cve_id,
+                        v.cvss_score,
+                        v.severity,
+                        (v.description[:150] + "...") if v.description else "N/A",
+                        v.published_date.strftime("%Y-%m-%d") if v.published_date else "N/A",
+                    ]
+                )
 
         if len(vuln_rows) > 1:
             elements.append(self._styled_table(vuln_rows, colors.red))
@@ -172,7 +169,7 @@ class ReportGenerator:
                 ["Nivel de Riesgo", ra.risk_level],
                 ["Puntaje (0-100)", ra.overall_risk_score],
                 ["Modelo", ra.model_version],
-                ["Fecha", ra.evaluated_at.strftime("%Y-%m-%d %H:%M")]
+                ["Fecha", ra.evaluated_at.strftime("%Y-%m-%d %H:%M")],
             ]
 
             elements.append(self._styled_table(t4, colors.orange))
@@ -185,12 +182,7 @@ class ReportGenerator:
 
     # REPORTE MULTI-HOST
     def generate_network_report(self, hosts, output_path: str) -> str:
-
-        doc = SimpleDocTemplate(
-            output_path,
-            pagesize=landscape(letter),
-            title="Reporte General de Red VULNPORTS"
-        )
+        doc = SimpleDocTemplate(output_path, pagesize=landscape(letter), title="Reporte General de Red VULNPORTS")
 
         elements: List = []
 
@@ -208,16 +200,18 @@ class ReportGenerator:
 
         for h in hosts_sorted:
             ra = h.risk_assessments[-1] if h.risk_assessments else None
-            summary.append([
-                h.ip_address,
-                h.hostname or "N/A",
-                h.os_detected or "N/A",
-                h.scan_date.strftime("%Y-%m-%d %H:%M"),
-                h.total_ports,
-                h.high_risk_count,
-                ra.risk_level if ra else "N/A",
-                ra.overall_risk_score if ra else None
-            ])
+            summary.append(
+                [
+                    h.ip_address,
+                    h.hostname or "N/A",
+                    h.os_detected or "N/A",
+                    h.scan_date.strftime("%Y-%m-%d %H:%M"),
+                    h.total_ports,
+                    h.high_risk_count,
+                    ra.risk_level if ra else "N/A",
+                    ra.overall_risk_score if ra else None,
+                ]
+            )
 
         elements.append(self._styled_table(summary, colors.darkblue))
         elements.append(Spacer(1, 30))
@@ -229,11 +223,17 @@ class ReportGenerator:
         port_rows = [["Host", "Puerto", "Protocolo", "Estado", "Servicio", "Versión", "Fecha"]]
         for h in hosts_sorted:
             for p in h.ports:
-                port_rows.append([
-                    h.ip_address, p.port_number, p.protocol.upper(),
-                    p.status, p.service_name, p.service_version,
-                    p.scanned_at.strftime("%Y-%m-%d %H:%M")
-                ])
+                port_rows.append(
+                    [
+                        h.ip_address,
+                        p.port_number,
+                        p.protocol.upper(),
+                        p.status,
+                        p.service_name,
+                        p.service_version,
+                        p.scanned_at.strftime("%Y-%m-%d %H:%M"),
+                    ]
+                )
 
         elements.append(self._styled_table(port_rows, colors.grey))
         elements.append(Spacer(1, 30))
@@ -246,19 +246,20 @@ class ReportGenerator:
         for h in hosts_sorted:
             for p in h.ports:
                 for v in p.vulnerabilities:
-                    vuln_rows.append([
-                        h.ip_address, p.port_number, v.cve_id,
-                        v.cvss_score, v.severity,
-                        (v.description[:150] + "...") if v.description else "N/A",
-                        v.published_date.strftime("%Y-%m-%d") if v.published_date else "N/A"
-                    ])
+                    vuln_rows.append(
+                        [
+                            h.ip_address,
+                            p.port_number,
+                            v.cve_id,
+                            v.cvss_score,
+                            v.severity,
+                            (v.description[:150] + "...") if v.description else "N/A",
+                            v.published_date.strftime("%Y-%m-%d") if v.published_date else "N/A",
+                        ]
+                    )
 
         elements.append(self._styled_table(vuln_rows, colors.red))
 
-        doc.build(
-            elements,
-            onFirstPage=self._header_footer,
-            onLaterPages=self._header_footer
-        )
+        doc.build(elements, onFirstPage=self._header_footer, onLaterPages=self._header_footer)
 
         return output_path

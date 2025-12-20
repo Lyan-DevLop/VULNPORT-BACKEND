@@ -1,5 +1,6 @@
 from datetime import datetime
 from typing import Optional
+
 from pydantic import BaseModel
 
 
@@ -13,4 +14,3 @@ class HostSummaryOut(BaseModel):
     scan_date: datetime
 
     model_config = {"from_attributes": True}
-

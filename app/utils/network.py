@@ -1,15 +1,14 @@
-import socket
 import ipaddress
-import scapy
+import socket
 
 # Importamos Scapy.
-# Si no está disponible, ARP-scan quedará deshabilitado.
+# Si no está disponible, ARP-scan queda deshabilitado.
 try:
     from scapy.all import ARP, Ether, srp
+
     SCAPY_AVAILABLE = True
 except Exception:
     SCAPY_AVAILABLE = False
-
 
 
 #  Get a IP local
@@ -26,7 +25,7 @@ def get_local_ip() -> str:
         return ip
     except Exception:
         return "127.0.0.1"
-    
+
 
 #  Genera automaticamente la red local
 def get_default_network(cidr_mask: int = 24) -> str | None:
@@ -77,4 +76,3 @@ def discover_active_hosts(network_cidr: str) -> list[str]:
     except Exception as e:
         print(f"Error en ARP-scan: {e}")
         return []
-

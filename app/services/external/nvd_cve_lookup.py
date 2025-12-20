@@ -1,9 +1,9 @@
 from datetime import datetime, timedelta
-from typing import List, Dict, Optional
+from typing import Dict, List, Optional
 
-from app.core.nvd_client import nvd_client
 from app.config import settings
 from app.core.logger import get_logger
+from app.core.nvd_client import nvd_client
 
 log = get_logger(__name__)
 
@@ -14,7 +14,7 @@ class CVELookupService:
     y limitados según el .env.
     """
 
-# Busca en la API NVD los archivos historicos
+    # Busca en la API NVD los archivos historicos
     async def search_cves_for_service(self, service_name: str, version: Optional[str] = None) -> List[Dict]:
         if not service_name:
             return []
@@ -25,7 +25,6 @@ class CVELookupService:
 
         log.info(f"Buscando CVEs en NVD para: {keyword}")
 
-        # Fetch básico (sin parámetros extra porque tu NVDClient no los soporta)
         data = await nvd_client.fetch_cves(keyword)
 
         if not data or "vulnerabilities" not in data:
@@ -48,7 +47,7 @@ class CVELookupService:
                     pub_date = datetime.fromisoformat(published.replace("Z", ""))
                     if pub_date >= cutoff_date:
                         filtered_vulns.append(item)
-                except:
+                except Exception:
                     pass
 
         # Si no hay resultados tras filtrar, devuelve lo que encuentre
@@ -65,14 +64,16 @@ class CVELookupService:
             cve_data = item.get("cve", {})
             metrics = cve_data.get("metrics", {})
 
-            results.append({
-                "cve_id": cve_data.get("id"),
-                "cvss_score": self._extract_cvss_score(metrics),
-                "severity": self._extract_severity(metrics),
-                "description": self._extract_description(cve_data),
-                "published_date": cve_data.get("published"),
-                "source": "NVD",
-            })
+            results.append(
+                {
+                    "cve_id": cve_data.get("id"),
+                    "cvss_score": self._extract_cvss_score(metrics),
+                    "severity": self._extract_severity(metrics),
+                    "description": self._extract_description(cve_data),
+                    "published_date": cve_data.get("published"),
+                    "source": "NVD",
+                }
+            )
 
         log.info(f"{len(results)} CVEs devueltos después de filtros y límites")
         return results
@@ -84,13 +85,11 @@ class CVELookupService:
                 return metrics[key][0].get("cvssData", {}).get("baseScore")
         return None
 
-
     def _extract_severity(self, metrics: Dict) -> str | None:
         for key in ["cvssMetricV31", "cvssMetricV30", "cvssMetricV2"]:
             if key in metrics and metrics[key]:
                 return metrics[key][0].get("cvssData", {}).get("baseSeverity")
         return None
-
 
     def _extract_description(self, cve_data: Dict) -> str:
         descriptions = cve_data.get("descriptions", [])
@@ -100,6 +99,3 @@ class CVELookupService:
 
 
 cve_lookup_service = CVELookupService()
-
-
-

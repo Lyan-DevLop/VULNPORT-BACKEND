@@ -1,53 +1,61 @@
 from datetime import datetime, timedelta
-from jose import jwt, JWTError
-from passlib.context import CryptContext
 
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, HTTPException
 from fastapi.security import OAuth2PasswordBearer
+from jose import JWTError, jwt
+from passlib.context import CryptContext
 from sqlalchemy.orm import Session
 
+from app.core.settings import get_settings
 from app.database import get_db
 from app.models.users import User
-from .settings import get_settings
 
 settings = get_settings()
 
-pwd_context = CryptContext(
-    schemes=["pbkdf2_sha256"],
-    deprecated="auto"
-)
+pwd_context = CryptContext(schemes=["pbkdf2_sha256"], deprecated="auto")
 
-#  DEFINIR ESQUEMA OAUTH2 — NECESARIO PARA DEPENDENCIAS
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/login")
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="api/v1/auth/login")
 
-# Hash a la contraseña
+# Hash de la contraseña
 def hash_password(password: str) -> str:
     return pwd_context.hash(password)
+
 
 def verify_password(password: str, hashed: str) -> bool:
     return pwd_context.verify(password, hashed)
 
-# Creo el JWT
-def create_access_token(data: dict, expires_minutes: int | None = None):
+
+# Creacion del JWT
+def create_access_token(data: dict, expires_delta: timedelta | None = None):
+    """
+    Crea un JWT con expiración configurable.
+    Compatible con ACCESS y REFRESH tokens.
+    """
     to_encode = data.copy()
 
-    expire = datetime.utcnow() + timedelta(
-        minutes=expires_minutes or settings.JWT_EXPIRES_MINUTES
-    )
+    expire = datetime.utcnow() + (expires_delta or timedelta(minutes=15))
     to_encode.update({"exp": expire})
 
-    encoded = jwt.encode(
+    encoded_jwt = jwt.encode(
         to_encode,
         settings.JWT_SECRET_KEY,
         algorithm=settings.JWT_ALGORITHM,
     )
-    return encoded
 
-# Tomar el usuario actual (logueado)
+    return encoded_jwt
+
+
+# Usuario actual o logueado
 def get_current_user(
     token: str = Depends(oauth2_scheme),
     db: Session = Depends(get_db)
 ) -> User:
+
+    credentials_exception = HTTPException(
+        status_code=401,
+        detail="Token inválido o expirado",
+        headers={"WWW-Authenticate": "Bearer"},
+    )
 
     try:
         payload = jwt.decode(
@@ -55,13 +63,18 @@ def get_current_user(
             settings.JWT_SECRET_KEY,
             algorithms=[settings.JWT_ALGORITHM],
         )
-        username: str = payload.get("sub")
-    except JWTError:
-        raise HTTPException(status_code=401, detail="Token inválido")
 
-    user = db.query(User).filter(User.username == username).first()
+        user_id = payload.get("sub")
+        if user_id is None:
+            raise credentials_exception
+
+        user_id = int(user_id)
+
+    except (JWTError, ValueError):
+        raise credentials_exception
+
+    user = db.query(User).filter(User.id == user_id).first()
     if not user:
-        raise HTTPException(status_code=401, detail="Usuario no encontrado")
+        raise credentials_exception
 
     return user
-

@@ -1,6 +1,7 @@
 import ipaddress
 
-#Valida la IP
+
+# Valida la IP
 def is_valid_ip(ip: str) -> bool:
     """
     Valida si una cadena representa una IP válida (IPv4 o IPv6).
@@ -11,7 +12,8 @@ def is_valid_ip(ip: str) -> bool:
     except ValueError:
         return False
 
-#Normaliza la IP
+
+# Normaliza la IP
 def normalize_ip(ip: str) -> str:
     """
     Normaliza una IP:
@@ -22,6 +24,7 @@ def normalize_ip(ip: str) -> str:
     if not is_valid_ip(ip):
         raise ValueError(f"IP inválida: {ip}")
     return ip
+
 
 # CONVERTIR CIDR en LISTA DE IPs
 def cidr_to_ips(cidr: str) -> list[str]:
@@ -46,7 +49,7 @@ def expand_ip_range(start_ip: str, end_ip: str) -> list[str]:
     Devuelve todas las IP del rango.
     """
     start_ip = normalize_ip(start_ip)
-    end_ip   = normalize_ip(end_ip)
+    end_ip = normalize_ip(end_ip)
 
     start = ipaddress.ip_address(start_ip)
     end = ipaddress.ip_address(end_ip)
@@ -56,11 +59,12 @@ def expand_ip_range(start_ip: str, end_ip: str) -> list[str]:
 
     return [str(ipaddress.ip_address(i)) for i in range(int(start), int(end) + 1)]
 
+
 # Parseo flexible de la entrada
 def parse_ip_input(input_str: str) -> list[str]:
     """
     Permite 3 modos de entrada:
-    
+
     IP única
         "192.168.1.10"
     Rango
@@ -86,4 +90,3 @@ def parse_ip_input(input_str: str) -> list[str]:
         return [normalize_ip(input_str)]
 
     raise ValueError(f"Formato de IP desconocido: {input_str}")
-

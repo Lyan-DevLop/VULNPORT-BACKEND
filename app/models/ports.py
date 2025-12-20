@@ -1,5 +1,6 @@
 from datetime import datetime
-from sqlalchemy import Column, BigInteger, Integer, String, DateTime, ForeignKey, UniqueConstraint
+
+from sqlalchemy import BigInteger, Column, DateTime, ForeignKey, Integer, String, UniqueConstraint
 from sqlalchemy.orm import relationship
 
 from app.database import Base
@@ -12,26 +13,29 @@ class Port(Base):
     )
 
     id = Column(BigInteger, primary_key=True, index=True)
-    host_id = Column(
-        BigInteger,
-        ForeignKey("hosts.id", ondelete="CASCADE"),
-        nullable=False,
-        index=True
-    )
+    host_id = Column(BigInteger, ForeignKey("hosts.id", ondelete="CASCADE"), nullable=False, index=True)
 
     port_number = Column(Integer, nullable=False)
-    protocol = Column(String(10), nullable=False)     # tcp / udp
+    protocol = Column(String(10), nullable=False)  # tcp / udp
     service_name = Column(String(100), nullable=True)
     service_version = Column(String(100), nullable=True)
-    status = Column(String(20), nullable=False)       # open / closed / filtered
+    status = Column(String(20), nullable=False)  # open / closed / filtered
     scanned_at = Column(DateTime, default=datetime.utcnow)
 
     # RELACIONES
-    host = relationship("Host", back_populates="ports")
+    # Host dueño del puerto
+    host = relationship(
+        "Host",
+        back_populates="ports",
+        lazy="joined"
+    )
 
+    # Vulnerabilidades del puerto
     vulnerabilities = relationship(
         "Vulnerability",
         back_populates="port",
         cascade="all, delete-orphan",
-        passive_deletes=True
+        passive_deletes=True,
+        lazy="selectin"
     )
+
