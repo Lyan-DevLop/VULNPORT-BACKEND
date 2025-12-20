@@ -4,34 +4,61 @@ from typing import Optional
 from pydantic import BaseModel, Field
 
 
-# Base
+# HOST LIGERO o BASICO
+class HostLite(BaseModel):
+    id: int
+    ip_address: str
+    hostname: Optional[str] = None
+
+    model_config = {"from_attributes": True}
+
+# PORT LIGERO PARA VULNS
+class PortLite(BaseModel):
+    id: int
+    port_number: int
+    protocol: str
+    service_name: Optional[str] = None
+    host: Optional[HostLite] = None
+
+    model_config = {"from_attributes": True}
+
+# VULNERABILITY BASE
 class VulnerabilityBase(BaseModel):
     cve_id: Optional[str] = Field(None, max_length=20)
-    cvss_score: Optional[float] = Field(None, ge=0, le=10, description="CVSS v3 Score (0.0 - 10.0)")
-    severity: Optional[str] = Field(None, description="LOW, MEDIUM, HIGH, CRITICAL")
+    cvss_score: Optional[float] = Field(None, ge=0, le=10)
+    severity: Optional[str] = None
     description: Optional[str] = None
     published_date: Optional[date] = None
-    source: str = Field(default="NVD", description="Source of vulnerability data")
+    source: str = Field(default="NVD")
 
 
-# Crear Vulnerabilidad
 class VulnerabilityCreate(VulnerabilityBase):
     port_id: int
 
 
-# Actualizar Vulnerabilidad
 class VulnerabilityUpdate(BaseModel):
-    cve_id: Optional[str] = Field(None, max_length=20)
-    cvss_score: Optional[float] = Field(None, ge=0, le=10)
+    cve_id: Optional[str] = None
+    cvss_score: Optional[float] = None
     severity: Optional[str] = None
     description: Optional[str] = None
     published_date: Optional[date] = None
     source: Optional[str] = None
 
 
-# Respuesta
 class VulnerabilityOut(VulnerabilityBase):
     id: int
     port_id: int
+    port: Optional[PortLite] = None
 
     model_config = {"from_attributes": True}
+
+# VERSIÓN MINI (para hosts / resúmenes / riesgos)
+class VulnerabilityMini(BaseModel):
+    id: int
+    cve_id: Optional[str] = None
+    severity: Optional[str] = None
+    cvss_score: Optional[float] = None
+
+    model_config = {"from_attributes": True}
+
+

@@ -20,14 +20,14 @@ if DATABASE_URL.startswith("sqlite"):
 # CONFIG PARA SUPABASE (Transaction Mode — puerto 6543)
 else:
     engine = create_engine(
-        DATABASE_URL,
-        connect_args={"sslmode": "require"},
-        pool_pre_ping=True,
-        pool_size=5,            # Concurrency
-        max_overflow=10,        # Permito picos de carga
-        pool_timeout=30,
-        pool_recycle=1800,      # Evita conexiones muertas
-    )
+    DATABASE_URL,
+    pool_pre_ping=True,
+    pool_size=5,
+    max_overflow=10,
+    pool_timeout=30,
+    pool_recycle=1800,
+)
+    
 
 SessionLocal = sessionmaker(
     autocommit=False,
