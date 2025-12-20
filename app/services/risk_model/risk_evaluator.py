@@ -108,8 +108,8 @@ class RiskEvaluator:
 
     def _fallback_score_from_features(self, f: list[float]) -> float:
         # Mapeo según builder (12 features)
-        total_ports = f[0]
-        open_count = f[1]
+        __annotations__total_ports = f[0]
+        __annotations__open_count = f[1]
         high_risk_ports = f[2]
         avg_cvss = f[3]
         vuln_count = f[4]

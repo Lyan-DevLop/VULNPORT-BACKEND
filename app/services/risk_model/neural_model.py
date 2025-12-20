@@ -1,6 +1,6 @@
 import os
 from datetime import datetime
-from ipaddress import ip_address, IPv4Address, IPv6Address
+from ipaddress import ip_address
 
 import joblib
 import numpy as np

@@ -6,7 +6,6 @@ import pyotp
 from .email_service import send_email_code
 
 
-
 # GENERAR CÓDIGO 2FA POR EMAIL
 def generate_email_2fa_code() -> str:
     """

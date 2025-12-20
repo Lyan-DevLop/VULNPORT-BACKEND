@@ -4,6 +4,7 @@ from sqlalchemy.sql import func
 
 from app.database import Base
 
+
 # AGENT (equipo remoto que envía reportes)
 class Agent(Base):
     __tablename__ = "agents"
