@@ -1,136 +1,121 @@
+# app/services/risk_model/neural_model.py
 import os
+
 import joblib
 import numpy as np
-from sklearn.ensemble import RandomForestRegressor
-from sklearn.preprocessing import MinMaxScaler
-from datetime import datetime
+import torch
+import torch.nn as nn
 
 from app.core.logger import get_logger
-from app.models.hosts import Host
-from app.database import SessionLocal
 
 log = get_logger(__name__)
 
+MODEL_DIR = "model_store"
+MODEL_PATH = os.path.join(MODEL_DIR, "risk_model_torch.pt")
+SCALER_PATH = os.path.join(MODEL_DIR, "risk_scaler.pkl")
+META_PATH = os.path.join(MODEL_DIR, "risk_model_meta.pkl")
 
-MODEL_PATH = "risk_model.pkl"
-SCALER_PATH = "risk_scaler.pkl"
-MODEL_VERSION = "1.1.0"
+DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
+
+
+class MLPBinary(nn.Module):
+    # Debe coincidir EXACTO con el script de entrenamiento
+    def __init__(self, in_dim: int):
+        super().__init__()
+        self.net = nn.Sequential(
+            nn.Linear(in_dim, 128),
+            nn.ReLU(),
+            nn.Dropout(0.15),
+            nn.Linear(128, 64),
+            nn.ReLU(),
+            nn.Dropout(0.15),
+            nn.Linear(64, 1),  # logits
+        )
+
+    def forward(self, x):
+        return self.net(x)
 
 
 class RiskModel:
-
-    MIN_HOSTS = 10
-    MIN_VULNS = 20
+    """
+    Modelo NN entrenado con CIC-IDS2017 (78 features).
+    En runtime:
+    - Si NO hay features de flujo -> usa baseline neutral (0.5) para obtener un prior P(attack).
+    - Ese prior se mezcla con el score contextual del host (12 features) en RiskEvaluator.
+    """
 
     def __init__(self):
-        self.model = None
+        self.model: MLPBinary | None = None
         self.scaler = None
+        self.meta = None
+        self.in_dim = None
         self.load_model()
 
-    # CARGAR MODELO SI EXISTE
     def load_model(self):
-        if os.path.exists(MODEL_PATH) and os.path.exists(SCALER_PATH):
+        if os.path.exists(MODEL_PATH) and os.path.exists(SCALER_PATH) and os.path.exists(META_PATH):
             try:
-                self.model = joblib.load(MODEL_PATH)
                 self.scaler = joblib.load(SCALER_PATH)
-                log.info(f"Modelo IA cargado. Versión {MODEL_VERSION}")
+                self.meta = joblib.load(META_PATH)
+                self.in_dim = int(self.meta.get("n_features", getattr(self.scaler, "n_features_in_", 78)))
+
+                m = MLPBinary(self.in_dim).to(DEVICE)
+                state = torch.load(MODEL_PATH, map_location=DEVICE)
+                m.load_state_dict(state)
+                m.eval()
+                self.model = m
+
+                log.info(
+                    f"NN cargada OK. Version={self.meta.get('version')} "
+                    f"in_dim={self.in_dim} device={DEVICE}"
+                )
             except Exception as e:
-                log.error(f"Error cargando modelo IA: {e}")
+                log.error(f"Error cargando NN: {e}")
+                self.model = None
+                self.scaler = None
+                self.meta = None
+                self.in_dim = None
         else:
-            log.warning("Modelo neural no encontrado. Se usará fallback hasta entrenar.")
+            log.warning("NN no encontrada en model_store/. Se usará solo fallback contextual.")
 
-    # AUTOENTRENAMIENTO (si hay suficientes datos)
-    def auto_train(self):
+    def is_ready(self) -> bool:
+        return self.model is not None and self.in_dim is not None
+
+    def predict_attack_probability(self, flow_features: list[float] | None = None) -> float:
         """
-        Entrena automáticamente cuando exista:
-        - MIN_HOSTS ó más hosts
-        - MIN_VULNS ó más vulnerabilidades
+        Retorna P(attack) en [0,1].
+        - Si flow_features is None: usa baseline neutral 0.5 (ya en escala MinMax).
+        - Si se entregan flow_features: se escalan con scaler y se predice.
         """
-        db = SessionLocal()
-
-        hosts = db.query(Host).all()
-        if len(hosts) < self.MIN_HOSTS:
-            log.warning(f"No hay suficientes hosts ({len(hosts)}) para entrenar IA.")
-            return False
-
-        X = []
-        y = []
-        total_vulns = 0
-
-        for h in hosts:
-            ports = h.ports
-
-            total_ports = len(ports)
-            high_risk_ports = sum(1 for p in ports if len(p.vulnerabilities) > 0)
-
-            vulns = []
-            for p in ports:
-                vulns.extend(p.vulnerabilities)
-
-            vuln_count = len(vulns)
-            total_vulns += vuln_count
-
-            avg_cvss = np.mean([v.cvss_score for v in vulns if v.cvss_score]) if vuln_count else 0
-
-            # Feature vector
-            X.append([total_ports, high_risk_ports, avg_cvss, vuln_count])
-
-            # Bootstrapped label
-            y.append(
-                min(99.99, max(0.0, (avg_cvss * 20) + (high_risk_ports * 8) + (vuln_count * 2)))
-            )
-
-        if total_vulns < self.MIN_VULNS:
-            log.warning(f"No hay suficientes vulnerabilidades ({total_vulns}) para entrenar la red.")
-            return False
-
-        self.train(np.array(X), np.array(y))
-        log.info("Entrenamiento neural automático completado.")
-        return True
-
-    # Modelo de entrenamiento neural
-    def train(self, X: np.ndarray, y: np.ndarray):
-        log.info("Entrenando modelo neural de riesgo ...")
-
-        self.scaler = MinMaxScaler()
-        X_scaled = self.scaler.fit_transform(X)
-
-        self.model = RandomForestRegressor(
-            n_estimators=150,
-            max_depth=10,
-            random_state=42
-        )
-        self.model.fit(X_scaled, y)
-
-        joblib.dump(self.model, MODEL_PATH)
-        joblib.dump(self.scaler, SCALER_PATH)
-
-        log.info("Modelo neural entrenado y guardado correctamente.")
-
-    # Predicion segun BD
-    def predict(self, features: list[float]) -> float:
-        """
-        Devuelve score ajustado entre 0 y 99.99
-        """
-        if self.model is None or self.scaler is None:
+        if not self.is_ready():
             return 0.0
 
-        X = np.array([features], dtype=float)
-        X_scaled = self.scaler.transform(X)
+        # 1) construir Xs (features ya escaladas 0..1)
+        if flow_features is None:
+            # baseline neutral (no inventa tráfico; sólo prior estable)
+            Xs = np.full((1, self.in_dim), 0.5, dtype=np.float32)
+        else:
+            feats = list(flow_features)
+            if len(feats) > self.in_dim:
+                feats = feats[: self.in_dim]
+            elif len(feats) < self.in_dim:
+                feats = feats + [0.0] * (self.in_dim - len(feats))
 
-        raw_score = float(self.model.predict(X_scaled)[0])
+            X = np.array([feats], dtype=np.float32)
+            # escala a 0..1 con el scaler entrenado
+            Xs = self.scaler.transform(X).astype(np.float32)
 
-        score = min(99.99, max(0.0, round(raw_score, 2)))
+        xt = torch.tensor(Xs, dtype=torch.float32, device=DEVICE)
 
-        return score
+        with torch.no_grad():
+            logits = self.model(xt)
+            prob = torch.sigmoid(logits).cpu().numpy()[0][0]
+
+        return float(min(1.0, max(0.0, prob)))
+
+    def get_version(self) -> str:
+        if self.meta and "version" in self.meta:
+            return str(self.meta["version"])
+        return "unknown-nn"
 
 
-    # METADATOS
-    def get_version(self):
-        return MODEL_VERSION
-
-
-# Instancia global
 risk_model = RiskModel()
-
-

@@ -1,8 +1,9 @@
 # test_nvd.py
 
 import asyncio
-from app.core.nvd_client import nvd_client
+
 from app.core.logger import get_logger
+from app.core.nvd_client import nvd_client
 
 log = get_logger(__name__)
 

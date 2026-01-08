@@ -20,7 +20,7 @@ TTL_OS_MAPPING = {
 def detect_os(ip: str) -> Optional[str]:
     """
     Detecta sistema operativo estimado usando TTL obtenido por 'ping'.
-    
+
     Funciona en:
         - Windows
         - Linux
@@ -67,6 +67,7 @@ def _get_ttl(ip: str) -> Optional[int]:
 
     ttl_value = _extract_ttl(output)
     return ttl_value
+
 
 # Extrae el TTL
 def _extract_ttl(output: str) -> Optional[int]:
