@@ -1,5 +1,6 @@
 # app/services/risk_model/neural_model.py
 import os
+
 import joblib
 import numpy as np
 import torch

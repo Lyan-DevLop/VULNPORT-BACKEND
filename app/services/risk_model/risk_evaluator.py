@@ -1,5 +1,6 @@
 # app/services/risk_model/risk_evaluator.py
 from typing import List
+
 import numpy as np
 
 from app.core.logger import get_logger
