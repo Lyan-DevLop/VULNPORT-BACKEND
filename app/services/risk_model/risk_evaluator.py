@@ -1,4 +1,6 @@
+# app/services/risk_model/risk_evaluator.py
 from typing import List
+import numpy as np
 
 from app.core.logger import get_logger
 from app.models.hosts import Host
@@ -9,39 +11,44 @@ log = get_logger(__name__)
 
 
 class RiskEvaluator:
+    """
+    - NN aporta prior P(attack) (sin flows: baseline 0.5)
+    - Score final = mezcla (prior + contexto de host)
+    """
+
+    W_PRIOR = 0.40
+    W_CONTEXT = 0.60
+
     def evaluate(self, host: Host, ports: List[Port]) -> dict:
-        """
-        Evaluación robusta:
-        - Construye features con entorno + exposición + CVEs
-        - Intenta modelo ML
-        - Si no hay modelo, usa fallback coherente con las mismas features
-        """
-
-        # Para entrenar/decidir consistentemente, usamos el builder del modelo.
-        # build_features_for_host usa host.ports; aquí se reciben ports, pero host.ports debe estar consistente.
-        # Si host.ports no está cargado, igual funcionará en fallback.
+        # 12 features contextuales (si falla, usa builder fallback)
         try:
-            features = risk_model.build_features_for_host(host)
-        except Exception:
-            features = self._fallback_feature_build(host, ports)
+            features12 = self._build_context_features(host, ports)
+        except Exception as e:
+            log.warning(f"Fallo building context features: {e}")
+            features12 = self._fallback_feature_build(host, ports)
 
-        score = risk_model.predict(features)
+        context_score = self._fallback_score_from_features(features12)  # 0..100 aprox
+        prob_attack = risk_model.predict_attack_probability(flow_features=None)  # baseline prior
+        prior_score = float(round(prob_attack * 100.0, 2))
 
-        # Si el ML existe
-        if score > 0:
-            return {
-                "overall_risk_score": score,
-                "risk_level": self._risk_level(score),
-                "model_version": risk_model.get_version(),
-            }
+        final_score = (self.W_PRIOR * prior_score) + (self.W_CONTEXT * context_score)
+        final_score = float(min(99.99, max(0.0, round(final_score, 2))))
 
-        # Fallback robusto (mismo concepto del target)
-        score = self._fallback_score_from_features(features)
         return {
-            "overall_risk_score": score,
-            "risk_level": self._risk_level(score),
-            "model_version": "fallback-2.0-env",
+            "overall_risk_score": final_score,
+            "risk_level": self._risk_level(final_score),
+            "model_version": f"fusion(prior={risk_model.get_version()}+context=fallback-12f)",
+            "extras": {
+                "prior_attack_prob": round(prob_attack, 4),
+                "prior_score": prior_score,
+                "context_score": round(float(context_score), 2),
+                "fusion_weights": {"prior": self.W_PRIOR, "context": self.W_CONTEXT},
+            },
         }
+
+    def _build_context_features(self, host: Host, ports: List[Port]) -> list[float]:
+        # Usa 12 features
+        return self._fallback_feature_build(host, ports)
 
     def _fallback_feature_build(self, host: Host, ports: List[Port]) -> list[float]:
         total_ports = float(len(ports))
@@ -54,24 +61,22 @@ class RiskEvaluator:
         vuln_count = float(len(all_vulns))
 
         cvss_vals = [v.cvss_score for v in all_vulns if getattr(v, "cvss_score", None)]
-        avg_cvss = float(sum(cvss_vals) / len(cvss_vals)) if cvss_vals else 0.0
+        avg_cvss = float(np.mean(cvss_vals)) if cvss_vals else 0.0
 
         high_risk_ports = float(sum(1 for p in open_ports if len(getattr(p, "vulnerabilities", []) or []) > 0))
 
-        # Exposición básica por OS
         os_name = (getattr(host, "os_detected", None) or "").lower()
         is_windows = 1.0 if "windows" in os_name else 0.0
         is_linux = 1.0 if ("linux" in os_name or "ubuntu" in os_name or "debian" in os_name) else 0.0
 
-        weights_win = {445: 20, 139: 12, 135: 10, 3389: 18, 1433: 15, 1434: 15}
-        weights_linux = {22: 8, 2375: 18, 3306: 10, 5432: 10}
+        weights_win = {445: 20, 139: 12, 135: 10, 3389: 18, 5985: 12, 5986: 12, 1433: 15, 1434: 15}
+        weights_linux = {22: 8, 2375: 18, 3306: 10, 5432: 10, 6379: 12, 9200: 12}
 
         exposure = 0.0
         critical_open_count = 0.0
         for p in open_ports:
-            pn = getattr(p, "port_number", None)
             try:
-                pn = int(pn)
+                pn = int(getattr(p, "port_number", 0))
             except Exception:
                 continue
 
@@ -84,7 +89,6 @@ class RiskEvaluator:
 
         exposure = float(min(60.0, max(0.0, exposure)))
 
-        # Entorno por IP
         ip = (getattr(host, "ip_address", "") or "").strip()
         is_private = 1.0 if (ip.startswith("10.") or ip.startswith("192.168.") or ip.startswith("172.")) else 0.0
         is_loopback = 1.0 if ip.startswith("127.") else 0.0
@@ -97,7 +101,7 @@ class RiskEvaluator:
             high_risk_ports,
             avg_cvss,
             vuln_count,
-            exposure,
+            float(exposure),
             float(critical_open_count),
             float(is_private),
             float(is_loopback),
@@ -107,9 +111,6 @@ class RiskEvaluator:
         ]
 
     def _fallback_score_from_features(self, f: list[float]) -> float:
-        # Mapeo según builder (12 features)
-        __annotations__total_ports = f[0]
-        __annotations__open_count = f[1]
         high_risk_ports = f[2]
         avg_cvss = f[3]
         vuln_count = f[4]
@@ -133,4 +134,3 @@ class RiskEvaluator:
 
 
 risk_evaluator = RiskEvaluator()
-
