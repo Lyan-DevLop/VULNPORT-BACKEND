@@ -4,25 +4,43 @@ import os
 from datetime import datetime
 
 import joblib
+import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
+import seaborn as sns
 import torch
 import torch.nn as nn
-from sklearn.metrics import classification_report, confusion_matrix, f1_score, roc_auc_score
+from sklearn.metrics import (
+    accuracy_score,
+    average_precision_score,
+    balanced_accuracy_score,
+    brier_score_loss,
+    classification_report,
+    confusion_matrix,
+    f1_score,
+    log_loss,
+    matthews_corrcoef,
+    precision_recall_curve,
+    precision_score,
+    recall_score,
+    roc_auc_score,
+    roc_curve,
+)
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import MinMaxScaler
 
-# Config
+# ================= CONFIG =================
+
 DATA_GLOB = "datasets/CICIDS2017/*.csv"
 OUT_DIR = "model_store"
 
 MODEL_PATH = os.path.join(OUT_DIR, "risk_model_torch.pt")
 SCALER_PATH = os.path.join(OUT_DIR, "risk_scaler.pkl")
-META_PATH = os.path.join(OUT_DIR, "risk_model_meta.pkl")
+METRICS_JSON_PATH = os.path.join(OUT_DIR, "training_metrics.json")
+EXCEL_PATH = os.path.join(OUT_DIR, "training_report.xlsx")
 
 SEED = 42
 TEST_SIZE = 0.2
-MAX_ROWS = None  # ej: 1_500_000 para limitar. None = usa todo (RAM)
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 
 EPOCHS = 8
@@ -31,7 +49,25 @@ LR = 1e-3
 WEIGHT_DECAY = 1e-4
 
 
-# Model
+# ================= UTIL =================
+
+def convert_numpy(obj):
+    if isinstance(obj, np.integer):
+        return int(obj)
+    elif isinstance(obj, np.floating):
+        return float(obj)
+    elif isinstance(obj, np.ndarray):
+        return obj.tolist()
+    elif isinstance(obj, dict):
+        return {k: convert_numpy(v) for k, v in obj.items()}
+    elif isinstance(obj, list):
+        return [convert_numpy(i) for i in obj]
+    else:
+        return obj
+
+
+# ================= MODEL =================
+
 class MLPBinary(nn.Module):
     def __init__(self, in_dim: int):
         super().__init__()
@@ -42,185 +78,200 @@ class MLPBinary(nn.Module):
             nn.Linear(128, 64),
             nn.ReLU(),
             nn.Dropout(0.15),
-            nn.Linear(64, 1),  # logits
+            nn.Linear(64, 1),
         )
 
     def forward(self, x):
         return self.net(x)
 
 
-def set_seed(seed: int):
-    import random
-    random.seed(seed)
-    np.random.seed(seed)
-    torch.manual_seed(seed)
-    if torch.cuda.is_available():
-        torch.cuda.manual_seed_all(seed)
-
-
-def load_csvs(pattern: str) -> pd.DataFrame:
-    files = sorted(glob.glob(pattern))
-    if not files:
-        raise RuntimeError(f"No se encontraron CSV con patrón: {pattern}")
-
-    dfs = []
-    total = 0
-    for f in files:
-        print(f"[+] Leyendo: {f}")
-        df = pd.read_csv(f, low_memory=False)
-        df.columns = [c.strip() for c in df.columns]
-
-        # normalizar valores raros
-        df = df.replace([np.inf, -np.inf], np.nan)
-
-        dfs.append(df)
-        total += len(df)
-
-        if MAX_ROWS and total >= MAX_ROWS:
-            break
-
-    data = pd.concat(dfs, ignore_index=True)
-
-    if MAX_ROWS and len(data) > MAX_ROWS:
-        data = data.sample(n=MAX_ROWS, random_state=SEED).reset_index(drop=True)
-
-    print(f"[+] Filas cargadas: {len(data):,}")
-    return data
-
-
-def prepare_xy(df: pd.DataFrame):
-    if "Label" not in df.columns:
-        raise RuntimeError("No existe la columna 'Label' en los CSV.")
-
-    # y binaria: BENIGN=0, cualquier ataque=1
-    y_raw = df["Label"].astype(str).str.strip().str.upper()
-    y = (y_raw != "BENIGN").astype(np.int64).values
-
-    Xdf = df.drop(columns=["Label"])
-
-    # CIC-IDS2017 puede traer columnas no numéricas (p.ej. Timestamp)
-    X = Xdf.select_dtypes(include=[np.number]).copy()
-
-    # eliminar columnas totalmente vacías
-    X = X.dropna(axis=1, how="all")
-
-    # imputación rápida
-    X = X.fillna(0.0)
-
-    return X, y
-
-
-def make_loader(X: np.ndarray, y: np.ndarray, batch_size: int, shuffle: bool):
-    ds = torch.utils.data.TensorDataset(
-        torch.tensor(X, dtype=torch.float32),
-        torch.tensor(y.reshape(-1, 1), dtype=torch.float32),
-    )
-    return torch.utils.data.DataLoader(ds, batch_size=batch_size, shuffle=shuffle, drop_last=False)
-
+# ================= MAIN =================
 
 def main():
-    set_seed(SEED)
     os.makedirs(OUT_DIR, exist_ok=True)
+    np.random.seed(SEED)
+    torch.manual_seed(SEED)
 
-    df = load_csvs(DATA_GLOB)
-    Xdf, y = prepare_xy(df)
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
 
-    # Split estratificado
+    # -------- Cargar datos --------
+    files = sorted(glob.glob(DATA_GLOB))
+    dfs = []
+
+    for f in files:
+        print(f"[+] Leyendo {f}")
+        df = pd.read_csv(f, low_memory=False)
+        df.columns = [c.strip() for c in df.columns]
+        df = df.replace([np.inf, -np.inf], np.nan)
+        dfs.append(df)
+
+    df = pd.concat(dfs, ignore_index=True)
+    df = df.fillna(0)
+
+    y = (df["Label"].str.upper() != "BENIGN").astype(int).values
+    X = df.drop(columns=["Label"]).select_dtypes(include=[np.number]).values
+
     X_train, X_test, y_train, y_test = train_test_split(
-        Xdf.values, y, test_size=TEST_SIZE, random_state=SEED, stratify=y
+        X, y, test_size=TEST_SIZE, stratify=y, random_state=SEED
     )
 
-    # Escalado (MinMax para compatibilidad)
     scaler = MinMaxScaler()
-    X_train_s = scaler.fit_transform(X_train)
-    X_test_s = scaler.transform(X_test)
+    X_train = scaler.fit_transform(X_train)
+    X_test = scaler.transform(X_test)
 
-    train_loader = make_loader(X_train_s, y_train, BATCH_SIZE, shuffle=True)
-    test_loader = make_loader(X_test_s, y_test, BATCH_SIZE, shuffle=False)
+    train_ds = torch.utils.data.TensorDataset(
+        torch.tensor(X_train, dtype=torch.float32),
+        torch.tensor(y_train.reshape(-1, 1), dtype=torch.float32),
+    )
+    train_loader = torch.utils.data.DataLoader(train_ds, batch_size=BATCH_SIZE, shuffle=True)
 
-    in_dim = X_train_s.shape[1]
-    model = MLPBinary(in_dim=in_dim).to(DEVICE)
+    model = MLPBinary(X_train.shape[1]).to(DEVICE)
 
-    # Pos_weight para desbalance (ataques suelen ser menos)
     pos = float(np.sum(y_train == 1))
     neg = float(np.sum(y_train == 0))
-    pos_weight = torch.tensor([neg / max(pos, 1.0)], dtype=torch.float32, device=DEVICE)
+    pos_weight = torch.tensor([neg / max(pos, 1.0)], device=DEVICE)
 
     loss_fn = nn.BCEWithLogitsLoss(pos_weight=pos_weight)
-    opt = torch.optim.Adam(model.parameters(), lr=LR, weight_decay=WEIGHT_DECAY)
+    optimizer = torch.optim.Adam(model.parameters(), lr=LR, weight_decay=WEIGHT_DECAY)
 
-    print(f"[+] Entrenando en {DEVICE} | in_dim={in_dim} | pos_weight={float(pos_weight.item()):.3f}")
+    train_losses = []
 
-    # Train
-    model.train()
-    for epoch in range(1, EPOCHS + 1):
+    # -------- ENTRENAMIENTO --------
+    for epoch in range(EPOCHS):
+        model.train()
         losses = []
-        for xb, yb in train_loader:
-            xb = xb.to(DEVICE)
-            yb = yb.to(DEVICE)
 
-            opt.zero_grad()
+        for xb, yb in train_loader:
+            xb, yb = xb.to(DEVICE), yb.to(DEVICE)
+            optimizer.zero_grad()
             logits = model(xb)
             loss = loss_fn(logits, yb)
             loss.backward()
-            opt.step()
+            optimizer.step()
             losses.append(loss.item())
 
-        print(f"Epoch {epoch}/{EPOCHS} - loss={np.mean(losses):.5f}")
+        avg_loss = np.mean(losses)
+        train_losses.append(avg_loss)
+        print(f"Epoch {epoch+1}/{EPOCHS} - loss={avg_loss:.5f}")
 
-    # Eval
+    # -------- EVALUACIÓN --------
     model.eval()
-    probs_all = []
-    y_true_all = []
-
     with torch.no_grad():
-        for xb, yb in test_loader:
-            xb = xb.to(DEVICE)
-            logits = model(xb)
-            probs = torch.sigmoid(logits).cpu().numpy().reshape(-1)
-            probs_all.append(probs)
-            y_true_all.append(yb.numpy().reshape(-1))
+        logits = model(torch.tensor(X_test, dtype=torch.float32).to(DEVICE))
+        probs = torch.sigmoid(logits).cpu().numpy().reshape(-1)
 
-    probs_all = np.concatenate(probs_all)
-    y_true_all = np.concatenate(y_true_all).astype(np.int64)
-    y_pred = (probs_all >= 0.5).astype(np.int64)
+    y_pred = (probs >= 0.5).astype(int)
 
-    print("\n[+] Confusion matrix")
-    print(confusion_matrix(y_true_all, y_pred))
+    cm = confusion_matrix(y_test, y_pred)
+    tn, fp, fn, tp = cm.ravel()
 
-    print("\n[+] F1:", f1_score(y_true_all, y_pred))
-    try:
-        print("[+] ROC-AUC:", roc_auc_score(y_true_all, probs_all))
-    except Exception:
-        pass
+    accuracy = accuracy_score(y_test, y_pred)
+    precision = precision_score(y_test, y_pred)
+    recall = recall_score(y_test, y_pred)
+    f1 = f1_score(y_test, y_pred)
+    roc_auc = roc_auc_score(y_test, probs)
+    pr_auc = average_precision_score(y_test, probs)
+    mcc = matthews_corrcoef(y_test, y_pred)
+    balanced_acc = balanced_accuracy_score(y_test, y_pred)
+    logloss = log_loss(y_test, probs)
+    brier = brier_score_loss(y_test, probs)
 
-    print("\n[+] Report")
-    print(classification_report(y_true_all, y_pred, target_names=["BENIGN", "ATTACK"]))
+    specificity = tn / (tn + fp)
+    fpr_value = fp / (fp + tn)
+    fnr = fn / (fn + tp)
 
-    # Guardar para backend
+    fpr_curve, tpr_curve, _ = roc_curve(y_test, probs)
+    prec_curve, rec_curve, _ = precision_recall_curve(y_test, probs)
+
+    print("\n[+] ROC-AUC:", roc_auc)
+    print("[+] PR-AUC:", pr_auc)
+    print("\n", classification_report(y_test, y_pred))
+
+    # -------- GRÁFICAS PROFESIONALES --------
+
+    def save_plot(name):
+        png = os.path.join(OUT_DIR, f"{name}_{timestamp}.png")
+        jpg = os.path.join(OUT_DIR, f"{name}_{timestamp}.jpg")
+        plt.savefig(png, dpi=300)
+        plt.savefig(jpg, dpi=300)
+        plt.close()
+
+    # Confusion Matrix
+    plt.figure(figsize=(6,5))
+    sns.heatmap(cm, annot=True, fmt="d", cmap="Blues")
+    plt.title("Confusion Matrix")
+    plt.xlabel("Predicted")
+    plt.ylabel("Actual")
+    plt.tight_layout()
+    save_plot("confusion_matrix")
+
+    # ROC Curve
+    plt.figure(figsize=(6,5))
+    plt.plot(fpr_curve, tpr_curve, label=f"AUC = {roc_auc:.4f}")
+    plt.plot([0,1],[0,1], linestyle="--")
+    plt.title("ROC Curve")
+    plt.xlabel("False Positive Rate")
+    plt.ylabel("True Positive Rate")
+    plt.legend()
+    plt.tight_layout()
+    save_plot("roc_curve")
+
+    # PR Curve
+    plt.figure(figsize=(6,5))
+    plt.plot(rec_curve, prec_curve, label=f"PR-AUC = {pr_auc:.4f}")
+    plt.title("Precision-Recall Curve")
+    plt.xlabel("Recall")
+    plt.ylabel("Precision")
+    plt.legend()
+    plt.tight_layout()
+    save_plot("pr_curve")
+
+    # Loss Curve
+    plt.figure(figsize=(6,5))
+    plt.plot(train_losses)
+    plt.title("Training Loss")
+    plt.xlabel("Epoch")
+    plt.ylabel("Loss")
+    plt.tight_layout()
+    save_plot("training_loss")
+
+    # -------- EXPORTAR MÉTRICAS --------
+    metrics = {
+        "accuracy": accuracy,
+        "precision": precision,
+        "recall": recall,
+        "specificity": specificity,
+        "f1_score": f1,
+        "roc_auc": roc_auc,
+        "pr_auc": pr_auc,
+        "mcc": mcc,
+        "balanced_accuracy": balanced_acc,
+        "log_loss": logloss,
+        "brier_score": brier,
+        "false_positive_rate": fpr_value,
+        "false_negative_rate": fnr,
+        "tn": tn,
+        "fp": fp,
+        "fn": fn,
+        "tp": tp
+    }
+
+    # JSON seguro
+    with open(METRICS_JSON_PATH, "w") as f:
+        json.dump(convert_numpy(metrics), f, indent=2)
+
+    # Excel
+    with pd.ExcelWriter(EXCEL_PATH, engine="openpyxl") as writer:
+        pd.DataFrame([metrics]).to_excel(writer, sheet_name="Metrics", index=False)
+        pd.DataFrame(cm).to_excel(writer, sheet_name="Confusion Matrix", index=False)
+        pd.DataFrame({"FPR": fpr_curve, "TPR": tpr_curve}).to_excel(writer, sheet_name="ROC Curve", index=False)
+        pd.DataFrame({"Recall": rec_curve, "Precision": prec_curve}).to_excel(writer, sheet_name="PR Curve", index=False)
+
+    # Guardar modelo
     torch.save(model.state_dict(), MODEL_PATH)
     joblib.dump(scaler, SCALER_PATH)
 
-    meta = {
-        "n_features": int(in_dim),
-        "version": "3.0.0-mlp-torch-cicids2017",
-        "trained_at_utc": datetime.utcnow().isoformat(),
-        "device": DEVICE,
-        "dataset": "CIC-IDS2017",
-        "csv_glob": DATA_GLOB,
-        "max_rows": MAX_ROWS,
-        "epochs": EPOCHS,
-        "batch_size": BATCH_SIZE,
-        "lr": LR,
-        "test_size": TEST_SIZE,
-    }
-    joblib.dump(meta, META_PATH)
-
-    print("\n[+] Guardado OK:")
-    print(" -", MODEL_PATH)
-    print(" -", SCALER_PATH)
-    print(" -", META_PATH)
-    print("\nMeta:\n", json.dumps(meta, indent=2))
+    print("\n[+] TODO GUARDADO EN:", OUT_DIR)
 
 
 if __name__ == "__main__":
